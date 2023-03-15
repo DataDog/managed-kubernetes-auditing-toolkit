@@ -1,132 +1,84 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/eks"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
-	mapset "github.com/deckarep/golang-set/v2"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/url"
-	"strings"
+	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
+	"github.com/dominikbraun/graph"
+	"github.com/dominikbraun/graph/draw"
+	"os"
+	"path/filepath"
 )
 
-func getClusterIssuer(awsClient *aws.Config, targetCluster string) string {
-	println("Retrieving cluster OIDC issuer")
-	eksClient := eks.NewFromConfig(*awsClient)
-	clusterInfo, _ := eksClient.DescribeCluster(context.Background(), &eks.DescribeClusterInput{
-		Name: &targetCluster,
-	})
-	//TODO: what if no identity?
-	issuer := strings.Replace(*clusterInfo.Cluster.Identity.Oidc.Issuer, "https://", "", 1)
-	return issuer
-}
-
-func findRoles(awsClient *aws.Config, issuer string) []types.Role {
-	println("Listing roles in the AWS account")
-	iamClient := iam.NewFromConfig(*awsClient)
-	paginator := iam.NewListRolesPaginator(iamClient, &iam.ListRolesInput{})
-	identity, _ := sts.NewFromConfig(*awsClient).GetCallerIdentity(context.Background(), &sts.GetCallerIdentityInput{})
-	assumableRoles := make([]types.Role, 0)
-	for paginator.HasMorePages() {
-		roles, _ := paginator.NextPage(context.Background())
-		for _, role := range roles.Roles {
-			if roleTrustsIssuer(role, *identity.Account, issuer) {
-				assumableRoles = append(assumableRoles, role)
-			}
-		}
-	}
-
-	return assumableRoles
-}
-
-func roleTrustsIssuer(role types.Role, accountId string, issuer string) bool {
-	var policy map[string]interface{}
-
-	// url decode role.AssumeRolePolicyDocument
-	rawPolicy, _ := url.PathUnescape(*role.AssumeRolePolicyDocument)
-	err := json.Unmarshal([]byte(rawPolicy), &policy)
-	if err != nil {
-		panic(err)
-	}
-	for _, rawStatement := range policy["Statement"].([]interface{}) {
-		statement := rawStatement.(map[string]interface{})
-		if statement["Effect"] != "Allow" {
-			continue
-		}
-		// TODO: smart eval instead of string compare
-		if statement["Principal"].(map[string]interface{})["Federated"] == "arn:aws:iam::"+accountId+":oidc-provider/"+issuer {
-			// at this point we don't evaluate the conditions
-			return true
-		}
-	}
-	return false
-}
-
+/**
+ * We'll have to make a decision: do we want to show _effective_ permissions, or _how_ a specific workload is getting permissions?
+ */
 func main() {
-	k8s := K8sClient()
-	aws := AWSClient()
-	//targetCluster := "datadog-pde-test-eks-cluster-us-east-1"
-	targetCluster := "synthetics-eks"
-	issuer := getClusterIssuer(aws, targetCluster)
-
-	// All roles in AWS that at least one service account in the cluster is using
-	clusterCandidateRolesArns := mapset.NewSet[string]()
-
-	// All roles in AWS that have a trust relationship with the cluster's OIDC issuer
-	candidateRoles := findRoles(aws, issuer)
-	candidateRoleArns := mapset.NewSet[string]()
-	candidatesRolesByARN := make(map[string]types.Role)
-	for _, candidateRole := range candidateRoles {
-		candidatesRolesByARN[*candidateRole.Arn] = candidateRole
-		candidateRoleArns.Add(*candidateRole.Arn)
-	}
-	println("Found", candidateRoleArns.Cardinality(), "roles that can be assumed by the cluster's OIDC provider")
-
-	// List service accounts in all namespaces
-	println("Listing K8s service accounts")
-	serviceAccounts, _ := k8s.CoreV1().ServiceAccounts("").List(context.Background(), metav1.ListOptions{})
-	serviceAccountsWithRoleConfiguration := make([]v1.ServiceAccount, 0)
-	for _, serviceAccount := range serviceAccounts.Items {
-		if annotations := serviceAccount.Annotations; annotations != nil {
-			if roleArn, ok := annotations["eks.amazonaws.com/role-arn"]; ok {
-				serviceAccountsWithRoleConfiguration = append(serviceAccountsWithRoleConfiguration, serviceAccount)
-				clusterCandidateRolesArns.Add(roleArn)
-			}
-		}
-	}
-
-	// Find roles that are in both sets
-	// These are our roles (1) that can be assumed by the cluster and (2) at least one SA is using
-	commonRoles := clusterCandidateRolesArns.Intersect(candidateRoleArns).ToSlice()
-
-	// Now for each role, we look at its 'Condition' in the trust policy and determine which service accounts can use it
-	//assumableRolesByServiceAccount := make(map[string][]string)
-	for _, roleArn := range commonRoles {
-		for _, serviceAccount := range serviceAccountsWithRoleConfiguration {
-			if serviceAccountCanAssumeRole(serviceAccount, candidatesRolesByARN[roleArn], issuer) {
-				//assumableRolesByServiceAccount[serviceAccount.Namespace+"/"+serviceAccount.Name] = append(assumableRolesByServiceAccount[serviceAccount.Namespace+"/"+serviceAccount.Name], roleArn)
-				println(roleArn + " can be assumed by " + serviceAccount.Namespace + "/" + serviceAccount.Name)
-			}
-		}
-	}
-}
-
-func serviceAccountCanAssumeRole(serviceAccount v1.ServiceAccount, role types.Role, issuer string) bool {
-	//println("Checking if service account " + serviceAccount.Namespace + "/" + serviceAccount.Name + " can assume role " + *role.Arn)
-	var policy map[string]interface{}
-
-	// url decode role.AssumeRolePolicyDocument
-	rawPolicy, _ := url.PathUnescape(*role.AssumeRolePolicyDocument)
-	err := json.Unmarshal([]byte(rawPolicy), &policy)
+	targetCluster := os.Args[1]
+	resolver := EKSClusterRolesResolver{k8sClient: K8sClient(), awsClient: AWSClient()}
+	cluster, err := resolver.ResolveClusterRoles(targetCluster)
 	if err != nil {
 		panic(err)
 	}
 
+	for namespace, pods := range cluster.PodsByNamespace {
+		for _, pod := range pods {
+			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
+				continue
+			}
+			println("Pod " + namespace + "/" + pod.Name + " using service account " + pod.ServiceAccount.Name + " can assume role " + pod.ServiceAccount.AssumableRoles[0].Arn)
+		}
+	}
+
+	g := graph.New(graph.StringHash, graph.Directed(), graph.Acyclic())
+	for namespace, pods := range cluster.PodsByNamespace {
+		for _, pod := range pods {
+			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
+				continue
+			}
+			role := pod.ServiceAccount.AssumableRoles[0]
+			parsedArn, _ := arn.Parse(role.Arn)
+			roleLabel := fmt.Sprintf("IAM Role %s", parsedArn.Resource)
+			serviceAccountLabel := fmt.Sprintf("Service account %s/%s", namespace, pod.ServiceAccount.Name)
+			podLabel := fmt.Sprintf("Pod %s/%s", namespace, pod.Name)
+
+			g.AddVertex(
+				roleLabel,
+				graph.VertexAttribute("style", "filled"),
+				graph.VertexAttribute("shape", "box"),
+				graph.VertexAttribute("fillcolor", "#BFEFFF"),
+			)
+			g.AddVertex(serviceAccountLabel,
+				graph.VertexAttribute("shape", "box"),
+			)
+			g.AddVertex(podLabel,
+				graph.VertexAttribute("shape", "box"),
+			)
+			g.AddEdge(
+				podLabel, serviceAccountLabel,
+				//graph.EdgeAttribute("label", "runs under"),
+				//graph.EdgeAttribute("rank", "same"),
+			)
+			g.AddEdge(
+				serviceAccountLabel, roleLabel,
+				graph.EdgeAttribute("label", "can assume"),
+			)
+		}
+	}
+
+	file, _ := os.Create("/tmp/mygraph.gv")
+	_ = draw.DOT(g, file)
+
+}
+
+func roleCanBeAssumedByServiceAccount(role IAMRole, serviceAccount *K8sServiceAccount, cluster *EKSCluster) bool {
+	var policy map[string]interface{}
+	err := json.Unmarshal([]byte(role.TrustPolicy), &policy)
+	if err != nil {
+		panic(err)
+	}
+
+	issuerId := cluster.IssuerURL[len("https://"):]
 	for _, rawStatement := range policy["Statement"].([]interface{}) {
 		statement := rawStatement.(map[string]interface{})
 		if statement["Effect"] != "Allow" {
@@ -139,8 +91,14 @@ func serviceAccountCanAssumeRole(serviceAccount v1.ServiceAccount, role types.Ro
 		}
 
 		condition := rawCondition.(map[string]interface{})
+		//TODO: use stringlike
 		if stringEquals, ok := condition["StringEquals"]; ok {
-			if stringEquals.(map[string]interface{})[issuer+":sub"] == "system:serviceaccount:"+serviceAccount.Namespace+":"+serviceAccount.Name {
+			subjectCondition := stringEquals.(map[string]interface{})[issuerId+":sub"]
+			if subjectCondition == nil {
+				continue
+			}
+			effectiveSubject := "system:serviceaccount:" + serviceAccount.Namespace + ":" + serviceAccount.Name
+			if match, err := filepath.Match(subjectCondition.(string), effectiveSubject); match && err == nil {
 				return true
 			}
 		}
