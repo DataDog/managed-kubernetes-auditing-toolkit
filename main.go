@@ -26,7 +26,9 @@ func main() {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue
 			}
-			println("Pod " + namespace + "/" + pod.Name + " using service account " + pod.ServiceAccount.Name + " can assume role " + pod.ServiceAccount.AssumableRoles[0].Arn)
+			for _, role := range pod.ServiceAccount.AssumableRoles {
+				println("Pod " + namespace + "/" + pod.Name + " using service account " + pod.ServiceAccount.Name + " can assume role " + role.Arn)
+			}
 		}
 	}
 
@@ -36,18 +38,8 @@ func main() {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue
 			}
-			role := pod.ServiceAccount.AssumableRoles[0]
-			parsedArn, _ := arn.Parse(role.Arn)
-			roleLabel := fmt.Sprintf("IAM Role %s", parsedArn.Resource)
 			serviceAccountLabel := fmt.Sprintf("Service account %s/%s", namespace, pod.ServiceAccount.Name)
 			podLabel := fmt.Sprintf("Pod %s/%s", namespace, pod.Name)
-
-			g.AddVertex(
-				roleLabel,
-				graph.VertexAttribute("style", "filled"),
-				graph.VertexAttribute("shape", "box"),
-				graph.VertexAttribute("fillcolor", "#BFEFFF"),
-			)
 			g.AddVertex(serviceAccountLabel,
 				graph.VertexAttribute("shape", "box"),
 			)
@@ -59,10 +51,23 @@ func main() {
 				//graph.EdgeAttribute("label", "runs under"),
 				//graph.EdgeAttribute("rank", "same"),
 			)
-			g.AddEdge(
-				serviceAccountLabel, roleLabel,
-				graph.EdgeAttribute("label", "can assume"),
-			)
+
+			for _, role := range pod.ServiceAccount.AssumableRoles {
+				parsedArn, _ := arn.Parse(role.Arn)
+				roleLabel := fmt.Sprintf("IAM Role %s", parsedArn.Resource)
+
+				g.AddVertex(
+					roleLabel,
+					graph.VertexAttribute("style", "filled"),
+					graph.VertexAttribute("shape", "box"),
+					graph.VertexAttribute("fillcolor", "#BFEFFF"),
+				)
+
+				g.AddEdge(
+					serviceAccountLabel, roleLabel,
+					graph.EdgeAttribute("label", "can assume"),
+				)
+			}
 		}
 	}
 
@@ -81,7 +86,7 @@ func roleCanBeAssumedByServiceAccount(role IAMRole, serviceAccount *K8sServiceAc
 	issuerId := cluster.IssuerURL[len("https://"):]
 	for _, rawStatement := range policy["Statement"].([]interface{}) {
 		statement := rawStatement.(map[string]interface{})
-		if statement["Effect"] != "Allow" {
+		if statement["Effect"] != "Allow" || statement["Action"] != "sts:AssumeRoleWithWebIdentity" {
 			continue
 		}
 
@@ -91,14 +96,27 @@ func roleCanBeAssumedByServiceAccount(role IAMRole, serviceAccount *K8sServiceAc
 		}
 
 		condition := rawCondition.(map[string]interface{})
-		//TODO: use stringlike
+
+		// Case 1: StringLike
+		if stringLike, ok := condition["StringLike"]; ok {
+			subjectCondition := stringLike.(map[string]interface{})[issuerId+":sub"]
+			if subjectCondition == nil {
+				continue
+			}
+			effectiveSubject := "system:serviceaccount:" + serviceAccount.Namespace + ":" + serviceAccount.Name
+			if match, err := filepath.Match(subjectCondition.(string), effectiveSubject); match && err == nil {
+				return true
+			}
+		}
+
+		// Case 1: StringEquals
 		if stringEquals, ok := condition["StringEquals"]; ok {
 			subjectCondition := stringEquals.(map[string]interface{})[issuerId+":sub"]
 			if subjectCondition == nil {
 				continue
 			}
 			effectiveSubject := "system:serviceaccount:" + serviceAccount.Namespace + ":" + serviceAccount.Name
-			if match, err := filepath.Match(subjectCondition.(string), effectiveSubject); match && err == nil {
+			if subjectCondition.(string) == effectiveSubject {
 				return true
 			}
 		}

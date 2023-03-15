@@ -24,6 +24,7 @@ import (
 We should NOT restrict ourselves to the annotations on the service accounts, otherwise we're missing cases such as:
 * Pod X uses role roleA
 * RoleB allows ALL pods in a NS to assume it
+THE SERVICE ACCOUNT IS IRRELEVANT, WE ONLY CARE ABOUT POD IDENTITY
 */
 
 type EKSClusterRolesResolver struct {
@@ -132,6 +133,9 @@ func (m *EKSClusterRolesResolver) getServiceAccountsByNamespace() (map[string][]
 }
 
 func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *EKSCluster, serviceAccount *K8sServiceAccount) ([]IAMRole, error) {
+	// For now, we only consider service accounts with the EKS annotation
+	// Technically, we might want to consider all service accounts, and consider that you could add the annotation manually
+	// However, in general we focus on current, effective permissions only
 	const EKSAnnotation = "eks.amazonaws.com/role-arn"
 	annotations := serviceAccount.Annotations
 
@@ -139,20 +143,24 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *EKS
 		// The service account has no annotations at all
 		return []IAMRole{}, nil
 	}
-	roleArn, hasRoleAnnotation := annotations[EKSAnnotation]
-	if !hasRoleAnnotation {
+
+	if _, hasRoleAnnotation := annotations[EKSAnnotation]; !hasRoleAnnotation {
 		// The service account has annotations, but not the EKS one
 		return []IAMRole{}, nil
 	}
 
+	assumableRoles := []IAMRole{}
 	// TODO: O(1) lookup instead of iterating
 	for _, candidateRole := range cluster.AssumableRoles {
-		if candidateRole.Arn == roleArn && roleCanBeAssumedByServiceAccount(candidateRole, serviceAccount, cluster) {
-			return []IAMRole{candidateRole}, nil
+		// Note: We don't need to check 'candidateRole.Arn == roleArn'
+		// If the EKS annotation is specified, it means a JWT is injected in the pod
+		// From there, if the trust relationship, anyone with the JWT can assume the role regardless of the annotation value
+		if roleCanBeAssumedByServiceAccount(candidateRole, serviceAccount, cluster) {
+			assumableRoles = append(assumableRoles, candidateRole)
 		}
 	}
 
-	return []IAMRole{}, nil
+	return assumableRoles, nil
 }
 
 func (m *EKSClusterRolesResolver) resolvePodRoles() error {

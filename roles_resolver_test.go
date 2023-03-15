@@ -28,6 +28,22 @@ func TestRoleCanBeAssumedByServiceAccount(t *testing.T) {
 			ExpectedResult: false,
 		},
 		{
+			Name: "A role with the proper trust policy cannot be assumed if it doesn't specify the AssumeRoleWithWebIdentity action",
+			IAMRole: IAMRole{
+				Arn:         "arn:aws:iam::012345678901:role/my-role",
+				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRole\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\",\"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"system:serviceaccount:my-ns:my-sa\"}}}]}",
+			},
+			K8sServiceAccount: K8sServiceAccount{
+				Name:      "my-sa",
+				Namespace: "my-ns",
+				Annotations: map[string]string{
+					"eks.amazonaws.com/role-arn": "arn:aws:iam::012345678901:role/my-role",
+				},
+			},
+			IssuerURL:      "https://oidc.eks.us-east-1.amazonaws.com/id/1234",
+			ExpectedResult: false,
+		},
+		{
 			Name: "A properly configured role can be assumed by a properly configured service account",
 			IAMRole: IAMRole{
 				Arn:         "arn:aws:iam::012345678901:role/my-role",
@@ -47,7 +63,7 @@ func TestRoleCanBeAssumedByServiceAccount(t *testing.T) {
 			Name: "A properly configured role can be assumed by a properly configured service account, even when using a wildcard in the pod name",
 			IAMRole: IAMRole{
 				Arn:         "arn:aws:iam::012345678901:role/my-role",
-				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRoleWithWebIdentity\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\",\"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"system:serviceaccount:my-ns:*\"}}}]}",
+				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRoleWithWebIdentity\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\"}, \"StringLike\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"system:serviceaccount:my-ns:*\"}}}]}",
 			},
 			K8sServiceAccount: K8sServiceAccount{
 				Name:      "my-sa",
@@ -60,10 +76,26 @@ func TestRoleCanBeAssumedByServiceAccount(t *testing.T) {
 			ExpectedResult: true,
 		},
 		{
+			Name: "A properly configured role cannot be assumed by a properly configured service account when the wildcard is incorrectly in a StringEquals condition",
+			IAMRole: IAMRole{
+				Arn:         "arn:aws:iam::012345678901:role/my-role",
+				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRoleWithWebIdentity\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\", \"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"system:serviceaccount:my-ns:*\"}}}]}",
+			},
+			K8sServiceAccount: K8sServiceAccount{
+				Name:      "my-sa",
+				Namespace: "my-ns",
+				Annotations: map[string]string{
+					"eks.amazonaws.com/role-arn": "arn:aws:iam::012345678901:role/my-role",
+				},
+			},
+			IssuerURL:      "https://oidc.eks.us-east-1.amazonaws.com/id/1234",
+			ExpectedResult: false,
+		},
+		{
 			Name: "A properly configured role can be assumed by a properly configured service account, even when using a wildcard in the namespace",
 			IAMRole: IAMRole{
 				Arn:         "arn:aws:iam::012345678901:role/my-role",
-				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRoleWithWebIdentity\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\",\"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"system:serviceaccount:*:my-sa\"}}}]}",
+				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRoleWithWebIdentity\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\"}, \"StringLike\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"system:serviceaccount:*:my-sa\"}}}]}",
 			},
 			K8sServiceAccount: K8sServiceAccount{
 				Name:      "my-sa",
@@ -80,7 +112,7 @@ func TestRoleCanBeAssumedByServiceAccount(t *testing.T) {
 			IAMRole: IAMRole{
 				//TODO fix stringlike
 				Arn:         "arn:aws:iam::012345678901:role/my-role",
-				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRoleWithWebIdentity\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\",\"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"*\"}}}]}",
+				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRoleWithWebIdentity\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\"}, \"StringLike\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"*\"}}}]}",
 			},
 			K8sServiceAccount: K8sServiceAccount{
 				Name:      "my-sa",
