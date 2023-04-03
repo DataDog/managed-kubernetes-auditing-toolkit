@@ -22,35 +22,60 @@ func main() {
 	}
 
 	for namespace, pods := range cluster.PodsByNamespace {
+		println()
+		println("----------------")
+		println("Namespace " + namespace)
+		println("----------------")
+		println()
 		for _, pod := range pods {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue
 			}
+			println("Pod " + pod.Name + " using service account " + pod.ServiceAccount.Name + " can assume roles:")
 			for _, role := range pod.ServiceAccount.AssumableRoles {
-				println("Pod " + namespace + "/" + pod.Name + " using service account " + pod.ServiceAccount.Name + " can assume role " + role.Arn)
+				println(" - " + role.Arn)
 			}
+			println()
 		}
+		println()
 	}
 
 	g := graph.New(graph.StringHash, graph.Directed(), graph.Acyclic())
+
+	// Then pods
 	for namespace, pods := range cluster.PodsByNamespace {
 		for _, pod := range pods {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue
 			}
-			serviceAccountLabel := fmt.Sprintf("Service account %s/%s", namespace, pod.ServiceAccount.Name)
 			podLabel := fmt.Sprintf("Pod %s/%s", namespace, pod.Name)
-			g.AddVertex(serviceAccountLabel,
-				graph.VertexAttribute("shape", "box"),
-			)
+
 			g.AddVertex(podLabel,
 				graph.VertexAttribute("shape", "box"),
+				graph.VertexAttribute("rank", "same"),
 			)
-			g.AddEdge(
+		}
+	}
+
+	for namespace, pods := range cluster.PodsByNamespace {
+		for _, pod := range pods {
+			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
+				continue
+			}
+			//serviceAccountLabel := fmt.Sprintf("Service account %s/%s", namespace, pod.ServiceAccount.Name)
+			podLabel := fmt.Sprintf("Pod %s/%s", namespace, pod.Name)
+
+			/*g.AddVertex(podLabel,
+				graph.VertexAttribute("shape", "box"),
+			)*/
+			/*g.AddVertex(serviceAccountLabel,
+				graph.VertexAttribute("shape", "box"),
+			)*/
+			/*g.AddEdge(
 				podLabel, serviceAccountLabel,
-				//graph.EdgeAttribute("label", "runs under"),
+				graph.EdgeAttribute("label", "runs under"),
 				//graph.EdgeAttribute("rank", "same"),
-			)
+			)*/
 
 			for _, role := range pod.ServiceAccount.AssumableRoles {
 				parsedArn, _ := arn.Parse(role.Arn)
@@ -61,10 +86,11 @@ func main() {
 					graph.VertexAttribute("style", "filled"),
 					graph.VertexAttribute("shape", "box"),
 					graph.VertexAttribute("fillcolor", "#BFEFFF"),
+					graph.VertexAttribute("rank", "max"),
 				)
 
 				g.AddEdge(
-					serviceAccountLabel, roleLabel,
+					podLabel, roleLabel,
 					graph.EdgeAttribute("label", "can assume"),
 				)
 			}
