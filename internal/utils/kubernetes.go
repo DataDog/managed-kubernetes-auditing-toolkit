@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"k8s.io/client-go/kubernetes"
@@ -10,7 +10,7 @@ import (
 )
 
 func K8sClient() *kubernetes.Clientset {
-	config, err := clientcmd.BuildConfigFromFlags("", GetKubeConfigPath())
+	config, err := clientcmd.BuildConfigFromFlags("", getKubeConfigPath())
 	if err != nil {
 		log.Fatalf("unable to build kube config: %v", err)
 	}
@@ -21,8 +21,7 @@ func K8sClient() *kubernetes.Clientset {
 	return k8sClient
 }
 
-// unexported function with the main logic
-func GetKubeConfigPath() string {
+func getKubeConfigPath() string {
 	// if KUBECONFIG is set, use it
 	if kubeConfigEnvPath := os.Getenv("KUBECONFIG"); kubeConfigEnvPath != "" {
 		return kubeConfigEnvPath

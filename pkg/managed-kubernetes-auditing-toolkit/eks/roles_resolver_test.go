@@ -1,4 +1,4 @@
-package main
+package eks
 
 import (
 	"testing"
@@ -110,7 +110,6 @@ func TestRoleCanBeAssumedByServiceAccount(t *testing.T) {
 		{
 			Name: "A properly configured role can be assumed by a properly configured service account, even when using a wildcard",
 			IAMRole: IAMRole{
-				//TODO fix stringlike
 				Arn:         "arn:aws:iam::012345678901:role/my-role",
 				TrustPolicy: "{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"Federated\": \"arn:aws:iam::012345678901:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/1234\"},\"Action\": \"sts:AssumeRoleWithWebIdentity\",\"Condition\": {\"StringEquals\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:aud\": \"sts.amazonaws.com\"}, \"StringLike\": {\"oidc.eks.us-east-1.amazonaws.com/id/1234:sub\": \"*\"}}}]}",
 			},

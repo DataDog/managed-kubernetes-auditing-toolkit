@@ -1,4 +1,5 @@
-* Check sts audience in JWT
+* If the role trust policy has no :aud conditions, check anyway
+
 * Check for secrets in:
 	Env variables (including deployments etc)
 	ConfigMaps
@@ -6,3 +7,13 @@
 
 
 * Exposed through ALBs
+
+* Support multiple output formats
+
+* Interactive prompt for cluster name or provide from environment
+* Secret types: 
+
+
+
+* IMDS
+* ALB exposed

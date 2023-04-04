@@ -1,4 +1,4 @@
-package main
+package eks
 
 type EKSCluster struct {
 	Name                       string

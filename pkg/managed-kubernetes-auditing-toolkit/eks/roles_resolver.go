@@ -1,4 +1,4 @@
-package main
+package eks
 
 import (
 	"context"
@@ -10,31 +10,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"log"
 	"net/url"
+	"path/filepath"
 )
 
-/*
-	TODO:
-* Currently, we only look at roles that can be assumed through a service account
-* Instead, we should:
-	1. Find pods that have a service account with the EKS label (_any role_)
-	2. Then evaluate if this pod identity can assume each role
-
-
-We should NOT restrict ourselves to the annotations on the service accounts, otherwise we're missing cases such as:
-* Pod X uses role roleA
-* RoleB allows ALL pods in a NS to assume it
-THE SERVICE ACCOUNT IS IRRELEVANT, WE ONLY CARE ABOUT POD IDENTITY
-*/
-
 type EKSClusterRolesResolver struct {
-	awsClient *aws.Config
-	k8sClient *kubernetes.Clientset
+	AwsClient *aws.Config
+	K8sClient *kubernetes.Clientset
 }
 
 func (m *EKSClusterRolesResolver) ResolveClusterRoles(clusterName string) (*EKSCluster, error) {
-	println("Retrieving cluster OIDC issuer")
-	clusterInfo, err := eks.NewFromConfig(*m.awsClient).DescribeCluster(context.Background(), &eks.DescribeClusterInput{
+	log.Println("Retrieving cluster OIDC issuer")
+	clusterInfo, err := eks.NewFromConfig(*m.AwsClient).DescribeCluster(context.Background(), &eks.DescribeClusterInput{
 		Name: &clusterName,
 	})
 	if err != nil {
@@ -87,8 +75,8 @@ func (m *EKSClusterRolesResolver) ResolveClusterRoles(clusterName string) (*EKSC
 }
 
 func (m *EKSClusterRolesResolver) getRolesAssumableByCluster(cluster *EKSCluster) ([]IAMRole, error) {
-	println("Listing roles in the AWS account")
-	paginator := iam.NewListRolesPaginator(iam.NewFromConfig(*m.awsClient), &iam.ListRolesInput{})
+	log.Println("Listing roles in the AWS account")
+	paginator := iam.NewListRolesPaginator(iam.NewFromConfig(*m.AwsClient), &iam.ListRolesInput{})
 	assumableRoles := []IAMRole{}
 	for paginator.HasMorePages() {
 		roles, err := paginator.NextPage(context.Background())
@@ -114,9 +102,9 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByCluster(cluster *EKSCluster
 }
 
 func (m *EKSClusterRolesResolver) getServiceAccountsByNamespace() (map[string][]K8sServiceAccount, error) {
-	println("Listing K8s service accounts")
+	log.Println("Listing K8s service accounts")
 	serviceAccountsByNamespace := make(map[string][]K8sServiceAccount)
-	serviceAccounts, err := m.k8sClient.CoreV1().ServiceAccounts("").List(context.Background(), v1.ListOptions{})
+	serviceAccounts, err := m.K8sClient.CoreV1().ServiceAccounts("").List(context.Background(), v1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list K8s service accounts: %v", err)
 	}
@@ -134,7 +122,7 @@ func (m *EKSClusterRolesResolver) getServiceAccountsByNamespace() (map[string][]
 
 func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *EKSCluster, serviceAccount *K8sServiceAccount) ([]IAMRole, error) {
 	// For now, we only consider service accounts with the EKS annotation
-	// Technically, we might want to consider all service accounts, and consider that you could add the annotation manually
+	// Technically, we might want to consider all service accounts, and consider that you could add the annotation manually to it
 	// However, in general we focus on current, effective permissions only
 	const EKSAnnotation = "eks.amazonaws.com/role-arn"
 	annotations := serviceAccount.Annotations
@@ -145,7 +133,7 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *EKS
 	}
 
 	if _, hasRoleAnnotation := annotations[EKSAnnotation]; !hasRoleAnnotation {
-		// The service account has annotations, but not the EKS one
+		// The service account has some annotations, but not the EKS one
 		return []IAMRole{}, nil
 	}
 
@@ -153,8 +141,8 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *EKS
 	// TODO: O(1) lookup instead of iterating
 	for _, candidateRole := range cluster.AssumableRoles {
 		// Note: We don't need to check 'candidateRole.Arn == roleArn'
-		// If the EKS annotation is specified, it means a JWT is injected in the pod
-		// From there, if the trust relationship, anyone with the JWT can assume the role regardless of the annotation value
+		// If the EKS annotation is specified, it means a JWT is injected in the pod with the audience "sts.amazonaws.com"
+		// From there, if the trust relationship on the role allows it, anyone with the JWT can assume the role regardless of the annotation value
 		if roleCanBeAssumedByServiceAccount(candidateRole, serviceAccount, cluster) {
 			assumableRoles = append(assumableRoles, candidateRole)
 		}
@@ -168,7 +156,7 @@ func (m *EKSClusterRolesResolver) resolvePodRoles() error {
 }
 
 func (m *EKSClusterRolesResolver) getPodsByNamespace(cluster *EKSCluster) (map[string][]K8sPod, error) {
-	pods, err := m.k8sClient.CoreV1().Pods("").List(context.Background(), v1.ListOptions{})
+	pods, err := m.K8sClient.CoreV1().Pods("").List(context.Background(), v1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list K8s pods: %v", err)
 	}
@@ -211,6 +199,54 @@ func roleTrustsIssuer(role IAMRole, accountId string, issuer string) bool {
 		if statement["Principal"].(map[string]interface{})["Federated"] == "arn:aws:iam::"+accountId+":oidc-provider/"+issuerId {
 			// we don't evaluate the conditions on purpose
 			return true
+		}
+	}
+	return false
+}
+
+func roleCanBeAssumedByServiceAccount(role IAMRole, serviceAccount *K8sServiceAccount, cluster *EKSCluster) bool {
+	var policy map[string]interface{}
+	err := json.Unmarshal([]byte(role.TrustPolicy), &policy)
+	if err != nil {
+		panic(err)
+	}
+
+	issuerId := cluster.IssuerURL[len("https://"):]
+	for _, rawStatement := range policy["Statement"].([]interface{}) {
+		statement := rawStatement.(map[string]interface{})
+		if statement["Effect"] != "Allow" || statement["Action"] != "sts:AssumeRoleWithWebIdentity" {
+			continue
+		}
+
+		rawCondition, hasCondition := statement["Condition"]
+		if !hasCondition {
+			return true
+		}
+
+		condition := rawCondition.(map[string]interface{})
+
+		// Case 1: StringLike
+		if stringLike, ok := condition["StringLike"]; ok {
+			subjectCondition := stringLike.(map[string]interface{})[issuerId+":sub"]
+			if subjectCondition == nil {
+				continue
+			}
+			effectiveSubject := "system:serviceaccount:" + serviceAccount.Namespace + ":" + serviceAccount.Name
+			if match, err := filepath.Match(subjectCondition.(string), effectiveSubject); match && err == nil {
+				return true
+			}
+		}
+
+		// Case 1: StringEquals
+		if stringEquals, ok := condition["StringEquals"]; ok {
+			subjectCondition := stringEquals.(map[string]interface{})[issuerId+":sub"]
+			if subjectCondition == nil {
+				continue
+			}
+			effectiveSubject := "system:serviceaccount:" + serviceAccount.Namespace + ":" + serviceAccount.Name
+			if subjectCondition.(string) == effectiveSubject {
+				return true
+			}
 		}
 	}
 	return false
