@@ -9,13 +9,6 @@ import (
 	"log"
 )
 
-var availableSearchLocations = []string{
-	"configmaps",
-	"secrets",
-	"pod-definitions",
-	"deployments",
-}
-
 func buildEksFindSecretsCommand() *cobra.Command {
 	eksFindSecretsCommand := &cobra.Command{
 		Use:                   "find-secrets",

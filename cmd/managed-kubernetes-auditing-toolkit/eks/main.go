@@ -11,6 +11,7 @@ func BuildEksSubcommand() *cobra.Command {
 
 	eksCommand.AddCommand(buildEksRoleRelationshipsCommand())
 	eksCommand.AddCommand(buildEksFindSecretsCommand())
+	eksCommand.AddCommand(buildTestImdsAccessCommand())
 
 	return eksCommand
 }
