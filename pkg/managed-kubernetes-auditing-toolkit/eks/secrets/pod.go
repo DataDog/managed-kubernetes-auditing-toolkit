@@ -8,34 +8,45 @@ import (
 func findSecretsInSinglePodDefinition(pod *v1.Pod) []*SecretInfo {
 	var secrets []*SecretInfo
 	for _, container := range pod.Spec.Containers {
-		var accessKeyInfo *SecretInfo
-		var secretKeyInfo *SecretInfo
+		secrets = append(secrets, findSecretsInContainerDefinition(pod, &container)...)
+	}
+	for _, container := range pod.Spec.InitContainers {
+		secrets = append(secrets, findSecretsInContainerDefinition(pod, &container)...)
+	}
+	return secrets
+}
 
-		for _, env := range container.Env {
-			foundCredentials := FindAwsCredentialsInUnstructuredString(env.Value)
-			if foundCredentials.AccessKey != "" {
-				accessKeyInfo = &SecretInfo{
-					Namespace: pod.Namespace,
-					Name:      fmt.Sprintf("%s (environment variable %s)", pod.Name, env.Name),
-					Type:      "Pod",
-					Value:     foundCredentials.AccessKey,
-				}
-			}
-			if foundCredentials.SecretKey != "" {
-				secretKeyInfo = &SecretInfo{
-					Namespace: pod.Namespace,
-					Name:      fmt.Sprintf("%s (environment variable %s)", pod.Name, env.Name),
-					Type:      "Pod",
-					Value:     foundCredentials.SecretKey,
-				}
-			}
-			if accessKeyInfo != nil && secretKeyInfo != nil {
-				secrets = append(secrets, accessKeyInfo, secretKeyInfo)
-				// start searching for a new set of credentials
-				accessKeyInfo = nil
-				secretKeyInfo = nil
+func findSecretsInContainerDefinition(pod *v1.Pod, container *v1.Container) []*SecretInfo {
+	var secrets []*SecretInfo
+
+	var accessKeyInfo *SecretInfo
+	var secretKeyInfo *SecretInfo
+
+	for _, env := range container.Env {
+		foundCredentials := FindAwsCredentialsInUnstructuredString(env.Value)
+		if foundCredentials.AccessKey != "" {
+			accessKeyInfo = &SecretInfo{
+				Namespace: pod.Namespace,
+				Name:      fmt.Sprintf("%s (environment variable %s)", pod.Name, env.Name),
+				Type:      "Pod",
+				Value:     foundCredentials.AccessKey,
 			}
 		}
+		if foundCredentials.SecretKey != "" {
+			secretKeyInfo = &SecretInfo{
+				Namespace: pod.Namespace,
+				Name:      fmt.Sprintf("%s (environment variable %s)", pod.Name, env.Name),
+				Type:      "Pod",
+				Value:     foundCredentials.SecretKey,
+			}
+		}
+		if accessKeyInfo != nil && secretKeyInfo != nil {
+			secrets = append(secrets, accessKeyInfo, secretKeyInfo)
+			// start searching for a new set of credentials
+			accessKeyInfo = nil
+			secretKeyInfo = nil
+		}
 	}
+
 	return secrets
 }

@@ -18,6 +18,10 @@ func podWithEnvironmentVariables(env map[string]string) *v1.Pod {
 	return &v1.Pod{Spec: v1.PodSpec{Containers: []v1.Container{{Env: makeContainerEnv(env)}}}}
 }
 
+func podWithEnvironmentVariablesInInitContainer(env map[string]string) *v1.Pod {
+	return &v1.Pod{Spec: v1.PodSpec{Containers: []v1.Container{{Name: "foo"}}, InitContainers: []v1.Container{{Name: "bar", Env: makeContainerEnv(env)}}}}
+}
+
 func TestDetectsSecretsInPods(t *testing.T) {
 	scenarios := []struct {
 		Name             string
@@ -76,6 +80,18 @@ func TestDetectsSecretsInPods(t *testing.T) {
 				{Env: makeContainerEnv(map[string]string{"secret": "HP8lBRs8X50F/0nCAXqEPQ95+jlG/0pLdlNui2XF"})},
 			}}},
 			ShouldFindSecret: false,
+		},
+		{
+			Name: "an access key and a secret key in an init container",
+			Pod: podWithEnvironmentVariablesInInitContainer(map[string]string{
+				"access": "AKIAZ3MSJV4WWNKWW5FG",
+				"secret": "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",
+			}),
+			ShouldFindSecret: true,
+			MatchedSecrets: []string{
+				"AKIAZ3MSJV4WWNKWW5FG",
+				"HP8lBRs8X50F/0nCAXqEPQ95+jlG/0pLdlNui2XF",
+			},
 		},
 	}
 
