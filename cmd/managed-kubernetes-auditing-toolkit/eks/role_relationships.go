@@ -37,6 +37,8 @@ func buildEksRoleRelationshipsCommand() *cobra.Command {
 	eksRoleRelationshipsCommand := &cobra.Command{
 		Use:                   "find-role-relationships",
 		Example:               "mkat eks find-role-relationships <eks-cluster-name>",
+		Short:                 "Find relationships between your EKS service accounts and IAM roles",
+		Long:                  "Analyzes your EKS cluster and finds all service accounts that can assume AWS roles, based on their trust policies ",
 		DisableFlagsInUseLine: true,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {

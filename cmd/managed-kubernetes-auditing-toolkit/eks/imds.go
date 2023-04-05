@@ -10,6 +10,8 @@ func buildTestImdsAccessCommand() *cobra.Command {
 	eksFindSecretsCommand := &cobra.Command{
 		Use:                   "test-imds-access",
 		Example:               "mkat eks test-imds-access",
+		Short:                 "Test if your EKS cluster allows pod access to the IMDS",
+		Long:                  "test-imds-access will check if your EKS cluster allows pods to access the IMDS by running a pod and executing a curl command hitting the IMDS",
 		DisableFlagsInUseLine: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doTestImdsAccessCommand()

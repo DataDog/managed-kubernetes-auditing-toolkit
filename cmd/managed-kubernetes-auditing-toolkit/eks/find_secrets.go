@@ -12,6 +12,8 @@ import (
 func buildEksFindSecretsCommand() *cobra.Command {
 	eksFindSecretsCommand := &cobra.Command{
 		Use:                   "find-secrets",
+		Short:                 "Find hardcoded AWS secrets in your EKS cluster",
+		Long:                  "find-secret will scan your EKS cluster for hardcoded AWS secrets in pod environment variables, configmaps and secrets",
 		Example:               "mkat eks find-secrets",
 		DisableFlagsInUseLine: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
