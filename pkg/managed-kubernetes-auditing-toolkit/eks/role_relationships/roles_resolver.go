@@ -1,4 +1,4 @@
-package eks
+package role_relationships
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	eks2 "github.com/datadog/managed-k8s-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"log"
@@ -20,7 +21,7 @@ type EKSClusterRolesResolver struct {
 	K8sClient *kubernetes.Clientset
 }
 
-func (m *EKSClusterRolesResolver) ResolveClusterRoles(clusterName string) (*EKSCluster, error) {
+func (m *EKSClusterRolesResolver) ResolveClusterRoles(clusterName string) (*eks2.EKSCluster, error) {
 	log.Println("Retrieving cluster OIDC issuer")
 	clusterInfo, err := eks.NewFromConfig(*m.AwsClient).DescribeCluster(context.Background(), &eks.DescribeClusterInput{
 		Name: &clusterName,
@@ -33,12 +34,12 @@ func (m *EKSClusterRolesResolver) ResolveClusterRoles(clusterName string) (*EKSC
 		return nil, nil
 	}
 	parsedClusterArn, _ := arn.Parse(*clusterInfo.Cluster.Arn)
-	cluster := &EKSCluster{
+	cluster := &eks2.EKSCluster{
 		Name:                       clusterName,
 		AccountID:                  parsedClusterArn.AccountID,
 		IssuerURL:                  *clusterInfo.Cluster.Identity.Oidc.Issuer,
-		ServiceAccountsByNamespace: map[string][]K8sServiceAccount{},
-		PodsByNamespace:            map[string][]K8sPod{},
+		ServiceAccountsByNamespace: map[string][]eks2.K8sServiceAccount{},
+		PodsByNamespace:            map[string][]eks2.K8sPod{},
 	}
 
 	// Find roles that the cluster can assume
@@ -74,10 +75,10 @@ func (m *EKSClusterRolesResolver) ResolveClusterRoles(clusterName string) (*EKSC
 	return cluster, nil
 }
 
-func (m *EKSClusterRolesResolver) getRolesAssumableByCluster(cluster *EKSCluster) ([]IAMRole, error) {
+func (m *EKSClusterRolesResolver) getRolesAssumableByCluster(cluster *eks2.EKSCluster) ([]eks2.IAMRole, error) {
 	log.Println("Listing roles in the AWS account")
 	paginator := iam.NewListRolesPaginator(iam.NewFromConfig(*m.AwsClient), &iam.ListRolesInput{})
-	assumableRoles := []IAMRole{}
+	assumableRoles := []eks2.IAMRole{}
 	for paginator.HasMorePages() {
 		roles, err := paginator.NextPage(context.Background())
 		if err != nil {
@@ -85,7 +86,7 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByCluster(cluster *EKSCluster
 		}
 		for _, role := range roles.Roles {
 			trustPolicy, err := url.PathUnescape(*role.AssumeRolePolicyDocument)
-			role := IAMRole{
+			role := eks2.IAMRole{
 				Arn:         *role.Arn,
 				TrustPolicy: trustPolicy,
 			}
@@ -101,26 +102,26 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByCluster(cluster *EKSCluster
 	return assumableRoles, nil
 }
 
-func (m *EKSClusterRolesResolver) getServiceAccountsByNamespace() (map[string][]K8sServiceAccount, error) {
+func (m *EKSClusterRolesResolver) getServiceAccountsByNamespace() (map[string][]eks2.K8sServiceAccount, error) {
 	log.Println("Listing K8s service accounts")
-	serviceAccountsByNamespace := make(map[string][]K8sServiceAccount)
+	serviceAccountsByNamespace := make(map[string][]eks2.K8sServiceAccount)
 	serviceAccounts, err := m.K8sClient.CoreV1().ServiceAccounts("").List(context.Background(), v1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list K8s service accounts: %v", err)
 	}
 	for _, serviceAccount := range serviceAccounts.Items {
 		namespace := serviceAccount.Namespace
-		serviceAccountsByNamespace[namespace] = append(serviceAccountsByNamespace[namespace], K8sServiceAccount{
+		serviceAccountsByNamespace[namespace] = append(serviceAccountsByNamespace[namespace], eks2.K8sServiceAccount{
 			Name:           serviceAccount.Name,
 			Namespace:      serviceAccount.Namespace,
 			Annotations:    serviceAccount.Annotations,
-			AssumableRoles: []IAMRole{},
+			AssumableRoles: []eks2.IAMRole{},
 		})
 	}
 	return serviceAccountsByNamespace, nil
 }
 
-func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *EKSCluster, serviceAccount *K8sServiceAccount) ([]IAMRole, error) {
+func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *eks2.EKSCluster, serviceAccount *eks2.K8sServiceAccount) ([]eks2.IAMRole, error) {
 	// For now, we only consider service accounts with the EKS annotation
 	// Technically, we might want to consider all service accounts, and consider that you could add the annotation manually to it
 	// However, in general we focus on current, effective permissions only
@@ -129,15 +130,15 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *EKS
 
 	if annotations == nil {
 		// The service account has no annotations at all
-		return []IAMRole{}, nil
+		return []eks2.IAMRole{}, nil
 	}
 
 	if _, hasRoleAnnotation := annotations[EKSAnnotation]; !hasRoleAnnotation {
 		// The service account has some annotations, but not the EKS one
-		return []IAMRole{}, nil
+		return []eks2.IAMRole{}, nil
 	}
 
-	assumableRoles := []IAMRole{}
+	assumableRoles := []eks2.IAMRole{}
 	// TODO: O(1) lookup instead of iterating
 	for _, candidateRole := range cluster.AssumableRoles {
 		// Note: We don't need to check 'candidateRole.Arn == roleArn'
@@ -155,15 +156,15 @@ func (m *EKSClusterRolesResolver) resolvePodRoles() error {
 	return nil
 }
 
-func (m *EKSClusterRolesResolver) getPodsByNamespace(cluster *EKSCluster) (map[string][]K8sPod, error) {
+func (m *EKSClusterRolesResolver) getPodsByNamespace(cluster *eks2.EKSCluster) (map[string][]eks2.K8sPod, error) {
 	pods, err := m.K8sClient.CoreV1().Pods("").List(context.Background(), v1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list K8s pods: %v", err)
 	}
-	podsByNamespace := make(map[string][]K8sPod)
+	podsByNamespace := make(map[string][]eks2.K8sPod)
 	for _, pod := range pods.Items {
 		namespace := pod.Namespace
-		var serviceAccount *K8sServiceAccount = nil
+		var serviceAccount *eks2.K8sServiceAccount = nil
 		candidateServiceAccounts := cluster.ServiceAccountsByNamespace[namespace]
 		for _, candidateServiceAccount := range candidateServiceAccounts {
 			if candidateServiceAccount.Name == pod.Spec.ServiceAccountName {
@@ -171,7 +172,7 @@ func (m *EKSClusterRolesResolver) getPodsByNamespace(cluster *EKSCluster) (map[s
 				break
 			}
 		}
-		podsByNamespace[namespace] = append(podsByNamespace[namespace], K8sPod{
+		podsByNamespace[namespace] = append(podsByNamespace[namespace], eks2.K8sPod{
 			Name:           pod.Name,
 			Namespace:      namespace,
 			ServiceAccount: serviceAccount,
@@ -181,7 +182,7 @@ func (m *EKSClusterRolesResolver) getPodsByNamespace(cluster *EKSCluster) (map[s
 	return podsByNamespace, nil
 }
 
-func roleTrustsIssuer(role IAMRole, accountId string, issuer string) bool {
+func roleTrustsIssuer(role eks2.IAMRole, accountId string, issuer string) bool {
 	var policy map[string]interface{}
 
 	// url decode role.AssumeRolePolicyDocument
@@ -204,7 +205,7 @@ func roleTrustsIssuer(role IAMRole, accountId string, issuer string) bool {
 	return false
 }
 
-func roleCanBeAssumedByServiceAccount(role IAMRole, serviceAccount *K8sServiceAccount, cluster *EKSCluster) bool {
+func roleCanBeAssumedByServiceAccount(role eks2.IAMRole, serviceAccount *eks2.K8sServiceAccount, cluster *eks2.EKSCluster) bool {
 	var policy map[string]interface{}
 	err := json.Unmarshal([]byte(role.TrustPolicy), &policy)
 	if err != nil {

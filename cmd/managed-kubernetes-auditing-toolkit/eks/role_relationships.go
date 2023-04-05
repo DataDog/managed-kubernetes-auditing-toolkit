@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/datadog/managed-k8s-auditing-toolkit/internal/utils"
 	"github.com/datadog/managed-k8s-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks"
+	"github.com/datadog/managed-k8s-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/role_relationships"
 	"github.com/dominikbraun/graph"
 	"github.com/dominikbraun/graph/draw"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -59,7 +60,7 @@ func buildEksRoleRelationshipsCommand() *cobra.Command {
 
 // Actual logic implementing the "find-role-relationships" command
 func doFindRoleRelationshipsCommand(targetCluster string) error {
-	resolver := eks.EKSClusterRolesResolver{K8sClient: utils.K8sClient(), AwsClient: utils.AWSClient()}
+	resolver := role_relationships.EKSClusterRolesResolver{K8sClient: utils.K8sClient(), AwsClient: utils.AWSClient()}
 	cluster, err := resolver.ResolveClusterRoles(targetCluster)
 	if err != nil {
 		log.Fatalf("unable to analyze cluster role relationships: %v", err)
