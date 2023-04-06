@@ -79,6 +79,8 @@ IMDS is accessible and allows any pod to retrieve credentials for the AWS role e
 
 | **Tool** | **Description** |
 |:---:|:---:|
+| [kube-bench](https://github.com/aquasecurity/kube-bench) |  kube-bench is a general-purpose auditing tool for Kubernetes cluster, checking for compliance against the CIS benchmarks |
+| [kubiscan](https://github.com/cyberark/KubiScan) | kubiscan focuses on identifying dangerous in-cluster RBAC permissions |
 | [peirates](https://github.com/inguardians/peirates) |   peirates is a generic Kubernetes penetration testing tool. Although it has a `get-aws-token` command that retrieve node credentials from the IMDS, it is not specific to managed K8s environments. |
 | [botb](https://github.com/brompwnie/botb) | botb is a generic Kubernetes penetration testing tool. It also has a command to retrieve node credentials from the IMDS, but it is not specific to managed K8s environments. |
 | [rbac-police](https://github.com/PaloAltoNetworks/rbac-police) | rbac-police focuses on identifying in-cluster RBAC relationships. |
