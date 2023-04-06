@@ -74,3 +74,14 @@ IMDS is accessible and allows any pod to retrieve credentials for the AWS role e
 
 * We show cloud-specific risks, not generic ones
 * We only show effective risk, not "potential" / graph-based risk
+
+## How does MKAT compare to other tools?
+
+| **Tool** | **Description** |
+|:---:|:---:|
+| [peirates](https://github.com/inguardians/peirates) |   peirates is a generic Kubernetes penetration testing tool. Although it has a `get-aws-token` command that retrieve node credentials from the IMDS, it is not specific to managed K8s environments. |
+| [botb](https://github.com/brompwnie/botb) | botb is a generic Kubernetes penetration testing tool. It also has a command to retrieve node credentials from the IMDS, but it is not specific to managed K8s environments. |
+| [rbac-police](https://github.com/PaloAltoNetworks/rbac-police) | rbac-police focuses on identifying in-cluster RBAC relationships. |
+| [kdigger](https://github.com/quarkslab/kdigger) | kdigger is a general-purpose context discovery tool for Kubernetes penetration testing. It does not attempt to be specific to managed K8s environments. |
+| [kubeletmein](https://github.com/4ARMED/kubeletmein) | kubeletmein _is_ specific to managed K8s environments. It's an utility to generate a kubeconfig file using the node's IAM credentials, to then use it in a compromised pod. |
+| [hardeneks](https://github.com/aws-samples/hardeneks) | hardeneks _is_ specific to managed K8s environments, but only for EKS. It identifies issues and lack of best practices inside of the cluster, and does not focus on cluster to cloud pivots. |
