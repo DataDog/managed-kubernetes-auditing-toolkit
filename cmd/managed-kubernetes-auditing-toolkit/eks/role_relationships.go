@@ -161,7 +161,7 @@ func getDotOutput(cluster *eks.EKSCluster) (string, error) {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue
 			}
-			podLabel := fmt.Sprintf(` "Pod %s/%s" `, namespace, pod.Name)
+			podLabel := fmt.Sprintf(` "Pod %s" `, pod.Name)
 			graphViz.AddNode(subgraph, podLabel, map[string]string{
 				"fontname":  "Helvetica",
 				"shape":     "box",
