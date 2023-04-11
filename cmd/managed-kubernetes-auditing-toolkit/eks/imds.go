@@ -1,8 +1,8 @@
 package eks
 
 import (
-	"github.com/datadog/managed-k8s-auditing-toolkit/internal/utils"
-	"github.com/datadog/managed-k8s-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/imds"
+	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
+	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/imds"
 	"github.com/spf13/cobra"
 )
 

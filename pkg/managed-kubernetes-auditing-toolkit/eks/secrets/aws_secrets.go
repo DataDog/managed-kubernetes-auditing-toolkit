@@ -10,6 +10,7 @@ type AwsSecretScanningResult struct {
 var (
 	AwsAccessKeyPattern = regexp.MustCompile("^AKIA[0-9A-Z]{16}$")
 	AwsSecretKeyPattern = regexp.MustCompile("^[A-Za-z0-9/+=]{40}$")
+	HashPattern         = regexp.MustCompile("^[0-9a-fA-F]{40}$")
 )
 
 func FindAwsCredentialsInUnstructuredString(input string) *AwsSecretScanningResult {
@@ -46,5 +47,9 @@ func matchAwsAccessKey(value string) *string {
 }
 
 func matchAwsSecretKey(value string) *string {
-	return match(AwsSecretKeyPattern, value)
+	result := match(AwsSecretKeyPattern, value)
+	if result != nil && !HashPattern.MatchString(value) {
+		return result
+	}
+	return nil
 }

@@ -3,9 +3,9 @@ package eks
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
-	"github.com/datadog/managed-k8s-auditing-toolkit/internal/utils"
-	"github.com/datadog/managed-k8s-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks"
-	"github.com/datadog/managed-k8s-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/role_relationships"
+	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
+	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks"
+	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/role_relationships"
 	"github.com/dominikbraun/graph"
 	"github.com/dominikbraun/graph/draw"
 	"github.com/jedib0t/go-pretty/v6/table"

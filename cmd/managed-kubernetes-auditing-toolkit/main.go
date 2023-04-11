@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/datadog/managed-k8s-auditing-toolkit/cmd/managed-kubernetes-auditing-toolkit/eks"
+	"github.com/datadog/managed-kubernetes-auditing-toolkit/cmd/managed-kubernetes-auditing-toolkit/eks"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )
