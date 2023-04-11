@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/url"
 	"path/filepath"
+	"strconv"
 )
 
 type EKSClusterRolesResolver struct {
@@ -54,6 +55,7 @@ func (m *EKSClusterRolesResolver) ResolveClusterRoles(clusterName string) (*eks2
 	cluster.ServiceAccountsByNamespace = serviceAccountsByNamespace
 
 	// Resolve service accounts assumable roles
+	log.Println("Analyzing the trust policy of " + strconv.Itoa(len(assumableRoles)) + " IAM roles that have the cluster's OIDC provider in their trust policy")
 	for _, serviceAccounts := range cluster.ServiceAccountsByNamespace {
 		for i, serviceAccount := range serviceAccounts {
 			// Find roles that the service account can assume
@@ -103,7 +105,7 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByCluster(cluster *eks2.EKSCl
 }
 
 func (m *EKSClusterRolesResolver) getServiceAccountsByNamespace() (map[string][]eks2.K8sServiceAccount, error) {
-	log.Println("Listing K8s service accounts")
+	log.Println("Listing K8s service accounts in all namespaces")
 	serviceAccountsByNamespace := make(map[string][]eks2.K8sServiceAccount)
 	serviceAccounts, err := m.K8sClient.CoreV1().ServiceAccounts("").List(context.Background(), v1.ListOptions{})
 	if err != nil {
@@ -238,15 +240,24 @@ func roleCanBeAssumedByServiceAccount(role eks2.IAMRole, serviceAccount *eks2.K8
 			}
 		}
 
-		// Case 1: StringEquals
+		// Case 2: StringEquals
 		if stringEquals, ok := condition["StringEquals"]; ok {
 			subjectCondition := stringEquals.(map[string]interface{})[issuerId+":sub"]
 			if subjectCondition == nil {
 				continue
 			}
 			effectiveSubject := "system:serviceaccount:" + serviceAccount.Namespace + ":" + serviceAccount.Name
-			if subjectCondition.(string) == effectiveSubject {
+
+			// The condition value can be a simple string, or a list of strings (which are then OR'ed together)
+			if stringSubjectCondition, ok := subjectCondition.(string); ok && stringSubjectCondition == effectiveSubject {
 				return true
+			}
+			if listSubjectCondition, ok := subjectCondition.([]interface{}); ok {
+				for _, stringSubjectCondition := range listSubjectCondition {
+					if stringSubjectCondition == effectiveSubject {
+						return true
+					}
+				}
 			}
 		}
 	}

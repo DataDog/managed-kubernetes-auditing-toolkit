@@ -2,7 +2,8 @@ MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 ROOT_DIR := $(dir $(MAKEFILE_PATH))
 
 all:
-	go build -o mkat ./cmd/managed-kubernetes-auditing-toolkit/main.go
+	mkdir -p bin
+	go build -o bin/mkat ./cmd/managed-kubernetes-auditing-toolkit/main.go
 
 test:
 	go test ./... -v

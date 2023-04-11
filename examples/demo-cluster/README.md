@@ -1,0 +1,1 @@
+This sample folder contains Terraform code to provision test resources in an EKS cluster, including pods, service accounts, and IAM roles configured for IAM Roles for Service Accounts.

@@ -9,9 +9,12 @@ import (
 var rootCmd = &cobra.Command{
 	Use:                   "mkat",
 	DisableFlagsInUseLine: true,
+	SilenceUsage:          true,
 }
 
 func init() {
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+
 	rootCmd.AddCommand(eks.BuildEksSubcommand())
 	rootCmd.AddCommand(&cobra.Command{
 		Use: "autogen-docs",

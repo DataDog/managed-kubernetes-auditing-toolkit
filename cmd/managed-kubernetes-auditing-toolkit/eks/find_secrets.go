@@ -33,6 +33,7 @@ func doFindSecretsCommand() error {
 
 	if len(secrets) == 0 {
 		log.Println("No hardcoded AWS secrets found in your AWS cluster")
+		return nil
 	}
 
 	t := table.NewWriter()

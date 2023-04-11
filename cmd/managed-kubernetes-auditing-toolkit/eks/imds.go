@@ -3,7 +3,9 @@ package eks
 import (
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/imds"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"log"
 )
 
 func buildTestImdsAccessCommand() *cobra.Command {
@@ -28,9 +30,10 @@ func doTestImdsAccessCommand() error {
 		return err
 	}
 	if result.IsImdsAccessible {
-		println("IMDS is accessible and allows any pod to retrieve credentials for the AWS role " + result.NodeRoleName)
+		warningColor := color.New(color.BgRed, color.FgWhite, color.Bold)
+		log.Println(warningColor.Sprint("IMDS is accessible") + " and allows any pod to retrieve credentials for the AWS role " + result.NodeRoleName)
 	} else {
-		println("IMDS is not accessible in your cluster")
+		log.Println("IMDS is not accessible in your cluster")
 	}
 	return nil
 }
