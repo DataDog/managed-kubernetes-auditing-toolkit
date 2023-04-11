@@ -6,9 +6,16 @@ analysis](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/actions
 
 MKAT is a toolkit for identifying common security issues in managed Kubernetes environments. It is focused on AWS EKS at the moment, but will be extended to other managed Kubernetes environments in the future.
 
-## Pre-requisites
+## Installation
 
-Make sure you are authenticated against your cluster, and to AWS. MKAT uses your current AWS and kubectl authentication contexts.
+```bash
+brew tap datadog/managed-kubernetes-auditing-toolkit https://github.com/datadog/managed-kubernetes-auditing-toolkit
+brew install datadog/managed-kubernetes-auditing-toolkit/managed-kubernetes-auditing-toolkit
+```
+
+... or use a [pre-compiled binary](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases).
+
+Then, make sure you are authenticated against your cluster, and to AWS. MKAT uses your current AWS and kubectl authentication contexts.
 
 ```bash
 aws eks update-kubeconfig --name <cluster-name>
