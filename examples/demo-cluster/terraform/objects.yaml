@@ -1,0 +1,31 @@
+serviceAccounts:
+  - name: rate-limiter-sa
+    role: rate-limiter-role
+  - name: apigw-sa
+    role: apigw-role
+  - name: kafka-proxy-sa
+    role: kafka-proxy-role
+  - name: inventory-service-sa
+    role: inventory-service-role
+
+pods:
+  - name: rate-limiter
+    serviceAccount: rate-limiter-sa
+  - name: apigw
+    serviceAccount: apigw-sa
+  - name: kafka-proxy
+    serviceAccount: kafka-proxy-sa
+  - name: inventory-service
+    serviceAccount: inventory-service-sa
+
+roles:
+  - name: rate-limiter-role
+    allowedServiceAccounts: [rate-limiter-sa]
+  - name: apigw-role
+    allowedServiceAccounts: [apigw-sa]
+  - name: kafka-proxy-role
+    allowedServiceAccounts: [kafka-proxy-sa]
+  - name: inventory-service-role
+    allowedServiceAccounts: [inventory-service-sa]
+  - name: s3-reader
+    allowedServiceAccounts: [apigw-sa, inventory-service-sa]
