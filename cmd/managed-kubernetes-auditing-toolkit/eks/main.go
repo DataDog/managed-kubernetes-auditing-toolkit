@@ -16,7 +16,7 @@ func BuildEksSubcommand() *cobra.Command {
 			figure.NewFigure("mkat", "", true).Print()
 			println()
 			if !utils.IsEKS() {
-				return errors.New("You do not seem to be connected to an EKS cluster. Connect to an EKS cluster and try again")
+				return errors.New("you do not seem to be connected to an EKS cluster. Connect to an EKS cluster and try again")
 			}
 			clusterName := utils.GetEKSClusterName()
 			if clusterName != "" {

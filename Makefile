@@ -1,9 +1,10 @@
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 ROOT_DIR := $(dir $(MAKEFILE_PATH))
+BUILD_VERSION=dev-snapshot
 
 all:
 	mkdir -p bin
-	go build -o bin/mkat ./cmd/managed-kubernetes-auditing-toolkit/main.go
+	go build -ldflags="-X main.BuildVersion=$(BUILD_VERSION)" -o bin/mkat ./cmd/managed-kubernetes-auditing-toolkit/main.go
 
 test:
 	go test ./... -v

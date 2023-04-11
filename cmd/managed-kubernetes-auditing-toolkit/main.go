@@ -3,8 +3,10 @@ package main
 import (
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/cmd/managed-kubernetes-auditing-toolkit/eks"
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 )
+
+// BuildVersion is injected at compilation time
+var BuildVersion = ""
 
 var rootCmd = &cobra.Command{
 	Use:                   "mkat",
@@ -17,9 +19,10 @@ func init() {
 
 	rootCmd.AddCommand(eks.BuildEksSubcommand())
 	rootCmd.AddCommand(&cobra.Command{
-		Use: "autogen-docs",
+		Use:   "version",
+		Short: "Display the current CLI version",
 		Run: func(cmd *cobra.Command, args []string) {
-			doc.GenMarkdownTree(rootCmd, "./docs")
+			println(BuildVersion)
 		},
 	})
 }

@@ -52,6 +52,9 @@ func (m *EKSClusterRolesResolver) ResolveClusterRoles(clusterName string) (*eks2
 
 	// Find all service accounts
 	serviceAccountsByNamespace, err := m.getServiceAccountsByNamespace()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve service accounts: %v", err)
+	}
 	cluster.ServiceAccountsByNamespace = serviceAccountsByNamespace
 
 	// Resolve service accounts assumable roles
@@ -152,10 +155,6 @@ func (m *EKSClusterRolesResolver) getRolesAssumableByServiceAccount(cluster *eks
 	}
 
 	return assumableRoles, nil
-}
-
-func (m *EKSClusterRolesResolver) resolvePodRoles() error {
-	return nil
 }
 
 func (m *EKSClusterRolesResolver) getPodsByNamespace(cluster *eks2.EKSCluster) (map[string][]eks2.K8sPod, error) {

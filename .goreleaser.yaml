@@ -1,0 +1,41 @@
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    ldflags:
+      - -X main.BuildVersion={{.Version}}
+
+    dir: cmd/managed-kubernetes-auditing-toolkit
+    binary: mkat
+brews:
+  - name: managed-kubernetes-auditing-toolkit
+    tap:
+      owner: datadog
+      name: managed-kubernetes-auditing-toolkit
+    folder: Formula
+    url_template: "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    license: Apache-2.0
+    homepage: "https://github.com/DataDog/managed-kubernetes-auditing-toolkit"
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'

@@ -29,7 +29,7 @@ func FindAwsCredentialsInUnstructuredString(input string) *AwsSecretScanningResu
 }
 
 func match(regex *regexp.Regexp, input string) *string {
-	tokens := regexp.MustCompile("(?s)\\s*[^a-zA-Z0-9./+)_-]+\\s*").Split(input, -1)
+	tokens := regexp.MustCompile(`(?s)\s*[^a-zA-Z0-9./+)_-]+\s*`).Split(input, -1)
 	for _, token := range tokens {
 		if token == "" {
 			continue
