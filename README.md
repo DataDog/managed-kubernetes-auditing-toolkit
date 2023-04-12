@@ -9,7 +9,7 @@ MKAT is an all-in-one auditing toolkit for identifying common security issues wi
 Features:
 - [Identify trust relationships between K8s service accounts and AWS IAM roles](#identify-trust-relationships-between-k8s-service-accounts-and-aws-iam-roles)
 - [Find hardcoded AWS credentials in K8s resources](#find-hardcoded-aws-credentials-in-k8s-resources)
-- [Test if pods can access the AWS Instance Metadata Service (IMDS)](#test-if-pods-can-access-the-aws-instance-metadata-service-imds=
+- [Test if pods can access the AWS Instance Metadata Service (IMDS)](#test-if-pods-can-access-the-aws-instance-metadata-service-imds)
 
 ## Installation
 
