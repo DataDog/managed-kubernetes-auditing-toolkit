@@ -4,7 +4,7 @@
 analysis](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/actions/workflows/static-analysis.yml/badge.svg)](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/actions/workflows/static-analysis.yml) 
 
 
-MKAT is a toolkit for identifying common security issues in managed Kubernetes environments. It is focused on AWS EKS at the moment, but will be extended to other managed Kubernetes environments in the future.
+MKAT is an all-in-one auditing toolkit for identifying common security issues within managed Kubernetes environments. It is focused on AWS EKS at the moment, and will be extended to other managed Kubernetes environments in the future.
 
 ## Installation
 
@@ -28,7 +28,8 @@ aws eks update-kubeconfig --name <cluster-name>
 [IAM Roles for Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) is 
 a popular mechanism to allow pods to assume AWS IAM roles, by exchanging a Kubernetes service account token for AWS credentials through the AWS STS API (`AssumeRoleWithWebIdentity`).
 
-MKAT can identify the trust relationships between K8s service accounts and AWS IAM roles, and display them in a table or as a graph.
+MKAT can identify the trust relationships between K8s service accounts and AWS IAM roles, and display them in a table or as a graph. 
+It works by looking both at the trust policy of the IAM roles, and at the service accounts that are associated with the pods running in the cluster.
 
 ```bash
 $ mkat eks find-role-role-relationships
