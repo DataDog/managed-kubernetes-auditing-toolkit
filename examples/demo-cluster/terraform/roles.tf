@@ -13,7 +13,7 @@ module "iam_eks_role" {
   oidc_providers = {
     one = {
       provider_arn               = format("arn:aws:iam::%s:oidc-provider/%s", data.aws_caller_identity.current.account_id, replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", ""))
-      namespace_service_accounts = [for serviceAccount in each.value.allowedServiceAccounts: "default:${serviceAccount}"]
+      namespace_service_accounts = [for serviceAccount in each.value.allowedServiceAccounts: "${serviceAccount.namespace}:${serviceAccount.name}"]
     }
   }
 }

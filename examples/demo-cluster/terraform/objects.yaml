@@ -1,31 +1,64 @@
+namespaces:
+  - microservices
+  - kafka
+
 serviceAccounts:
-  - name: rate-limiter-sa
-    role: rate-limiter-role
-  - name: apigw-sa
-    role: apigw-role
-  - name: kafka-proxy-sa
-    role: kafka-proxy-role
-  - name: inventory-service-sa
-    role: inventory-service-role
+- name: rate-limiter-sa
+  namespace: microservices
+  role: rate-limiter-role
+- name: inventory-service-sa
+  namespace: microservices
+  role: inventory-service-role
+- name: kafka-proxy-sa
+  namespace: kafka
+  role: kafka-proxy-role
+- name: kafka-reducer-sa
+  namespace: kafka
+  role: kafka-reducer-role
 
 pods:
-  - name: rate-limiter
-    serviceAccount: rate-limiter-sa
-  - name: apigw
-    serviceAccount: apigw-sa
-  - name: kafka-proxy
-    serviceAccount: kafka-proxy-sa
-  - name: inventory-service
-    serviceAccount: inventory-service-sa
+- name: rate-limiter-1
+  namespace: microservices
+  serviceAccount: rate-limiter-sa
+- name: rate-limiter-2
+  namespace: microservices
+  serviceAccount: rate-limiter-sa
+- name: rate-limiter-3
+  namespace: microservices
+  serviceAccount: rate-limiter-sa
+- name: inventory-service
+  namespace: microservices
+  serviceAccount: inventory-service-sa
+- name: inventory-service-2
+  namespace: microservices
+  serviceAccount: inventory-service-sa
+- name: kafka-proxy
+  namespace: kafka
+  serviceAccount: kafka-proxy-sa
+- name: kafka-reducer
+  namespace: kafka
+  serviceAccount: kafka-reducer-sa
 
 roles:
   - name: rate-limiter-role
-    allowedServiceAccounts: [rate-limiter-sa]
-  - name: apigw-role
-    allowedServiceAccounts: [apigw-sa]
+    allowedServiceAccounts:
+      - namespace: microservices
+        name: rate-limiter-sa
   - name: kafka-proxy-role
-    allowedServiceAccounts: [kafka-proxy-sa]
+    allowedServiceAccounts:
+      - namespace: kafka
+        name: kafka-proxy-sa
   - name: inventory-service-role
-    allowedServiceAccounts: [inventory-service-sa]
-  - name: s3-reader
-    allowedServiceAccounts: [apigw-sa, inventory-service-sa]
+    allowedServiceAccounts:
+      - namespace: microservices
+        name: inventory-service-sa
+  - name: kafka-reducer-role
+    allowedServiceAccounts:
+      - namespace: kafka
+        name: kafka-reducer-sa
+  - name: s3-backup-role
+    allowedServiceAccounts:
+      - namespace: microservices
+        name: inventory-service-sa
+      - namespace: kafka
+        name: kafka-proxy-sa
