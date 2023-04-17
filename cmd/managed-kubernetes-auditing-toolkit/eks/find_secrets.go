@@ -1,12 +1,13 @@
 package eks
 
 import (
+	"log"
+
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/secrets"
 	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 func buildEksFindSecretsCommand() *cobra.Command {

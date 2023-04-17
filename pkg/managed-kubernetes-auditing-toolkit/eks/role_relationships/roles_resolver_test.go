@@ -1,8 +1,9 @@
 package role_relationships
 
 import (
-	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks"
 	"testing"
+
+	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks"
 )
 
 func TestRoleCanBeAssumedByServiceAccount(t *testing.T) {

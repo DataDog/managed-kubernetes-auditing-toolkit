@@ -2,10 +2,11 @@ package eks
 
 import (
 	"errors"
+	"log"
+
 	"github.com/common-nighthawk/go-figure"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 func BuildEksSubcommand() *cobra.Command {

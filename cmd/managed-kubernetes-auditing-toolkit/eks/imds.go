@@ -1,11 +1,12 @@
 package eks
 
 import (
+	"log"
+
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/imds"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"log"
 )
 
 func buildTestImdsAccessCommand() *cobra.Command {

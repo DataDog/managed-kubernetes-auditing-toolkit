@@ -3,6 +3,10 @@ package eks
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"strings"
+
 	"github.com/awalterschulze/gographviz"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
@@ -13,9 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 	"golang.org/x/term"
-	"log"
-	"os"
-	"strings"
 )
 
 // Command-line arguments
