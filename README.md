@@ -14,8 +14,9 @@ Features:
 ## Installation
 
 ```bash
-brew tap datadog/managed-kubernetes-auditing-toolkit https://github.com/datadog/managed-kubernetes-auditing-toolkit
-brew install datadog/managed-kubernetes-auditing-toolkit/managed-kubernetes-auditing-toolkit
+brew tap datadog/mkat https://github.com/datadog/managed-kubernetes-auditing-toolkit
+brew install datadog/mkat/managed-kubernetes-auditing-toolkit
+mkat version
 ```
 
 ... or use a [pre-compiled binary](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases).
