@@ -1,0 +1,31 @@
+package iam_evaluation
+
+type AuthorizationDecision string
+
+const (
+	AuthorizationDecisionAllow AuthorizationDecision = "ALLOW"
+	AuthorizationDecisionDeny  AuthorizationDecision = "DENY"
+)
+
+type AuthorizationContext struct {
+	Action      string
+	Principal   string
+	ContextKeys map[string]string
+}
+
+type AuthorizationResult struct {
+	Decision AuthorizationDecision
+}
+
+var (
+	AuthorizationResultDeny       = AuthorizationResult{Decision: AuthorizationDecisionDeny}
+	AuthorizationResultAllow      = AuthorizationResult{Decision: AuthorizationDecisionAllow}
+	AuthorizationResultNoDecision = AuthorizationResult{Decision: ""}
+)
+
+type RoleTrustPolicyEvaluator struct {
+}
+
+func (m *RoleTrustPolicyEvaluator) Authorize(authorizationContext *AuthorizationContext) error {
+	return nil
+}
