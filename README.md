@@ -4,7 +4,7 @@
 analysis](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/actions/workflows/static-analysis.yml/badge.svg)](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/actions/workflows/static-analysis.yml) 
 
 
-MKAT is an all-in-one auditing toolkit for identifying common security issues within managed Kubernetes environments. It is focused on AWS EKS at the moment, and will be extended to other managed Kubernetes environments in the future.
+MKAT is an all-in-one auditing toolkit for identifying common security issues within managed Kubernetes environments. It is focused on Amazon EKS at the moment, and will be extended to other managed Kubernetes environments in the future.
 
 Features:
 - 🔎 [Identify trust relationships between K8s service accounts and AWS IAM roles](#identify-trust-relationships-between-k8s-service-accounts-and-aws-iam-roles)
