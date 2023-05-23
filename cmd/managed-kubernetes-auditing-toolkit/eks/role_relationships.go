@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/awalterschulze/gographviz"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
-	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/role_relationships"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -63,13 +63,17 @@ func buildEksRoleRelationshipsCommand() *cobra.Command {
 
 // Actual logic implementing the "find-role-relationships" command
 func doFindRoleRelationshipsCommand(targetCluster string) error {
-	resolver := role_relationships.EKSClusterRolesResolver{K8sClient: utils.K8sClient(), AwsClient: utils.AWSClient()}
-	cluster, err := resolver.ResolveClusterRoles(targetCluster)
+	resolver := role_relationships.EKSCluster{
+		K8sClient: utils.K8sClient(),
+		AwsClient: utils.AWSClient(),
+		Name:      targetCluster,
+	}
+	err := resolver.ResolveClusterRoles()
 	if err != nil {
 		log.Fatalf("unable to analyze cluster role relationships: %v", err)
 	}
 
-	output, err := getOutput(cluster)
+	output, err := getOutput(&resolver)
 	if err != nil {
 		return err
 	}
@@ -83,20 +87,20 @@ func doFindRoleRelationshipsCommand(targetCluster string) error {
 	return nil
 }
 
-func getOutput(cluster *eks.EKSCluster) (string, error) {
+func getOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	switch outputFormat {
 	case TextOutputFormat:
-		return getTextOutput(cluster)
+		return getTextOutput(resolver)
 	case DotOutputFormat:
-		return getDotOutput(cluster)
+		return getDotOutput(resolver)
 	case CsvOutputFormat:
-		return getCsvOutput(cluster)
+		return getCsvOutput(resolver)
 	default:
 		return "", fmt.Errorf("unsupported output format %s", outputFormat)
 	}
 }
 
-func getTextOutput(cluster *eks.EKSCluster) (string, error) {
+func getTextOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	t := table.NewWriter()
 	if term.IsTerminal(0) {
 		width, _, err := term.GetSize(0)
@@ -111,7 +115,12 @@ func getTextOutput(cluster *eks.EKSCluster) (string, error) {
 	})
 	t.AppendHeader(table.Row{"Namespace", "Service Account", "Pod", "Assumable Role ARN"})
 	var found = false
-	for namespace, pods := range cluster.PodsByNamespace {
+	for _, serviceAccounts := range resolver.ServiceAccountsByNamespace {
+		for _, serviceAccount := range serviceAccounts {
+			log.Println(strconv.Itoa(len(serviceAccount.AssumableRoles)))
+		}
+	}
+	for namespace, pods := range resolver.PodsByNamespace {
 		for _, pod := range pods {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue
@@ -138,7 +147,7 @@ type Vertex struct {
 func (v *Vertex) ID() int {
 	return v.Id
 }
-func getDotOutput(cluster *eks.EKSCluster) (string, error) {
+func getDotOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	graphAst, _ := gographviz.ParseString(`digraph G { }`)
 	graphViz := gographviz.NewGraph()
 	gographviz.Analyse(graphAst, graphViz)
@@ -150,7 +159,7 @@ func getDotOutput(cluster *eks.EKSCluster) (string, error) {
 	graphViz.AddAttr("G", "overlap", "false")
 	graphViz.AddAttr("G", "newrank", "true")
 
-	for namespace, pods := range cluster.PodsByNamespace {
+	for namespace, pods := range resolver.PodsByNamespace {
 		subgraph := fmt.Sprintf(` "cluster_%s" `, namespace)
 		graphViz.AddSubGraph("G", subgraph, map[string]string{
 			"rank":  "same",
@@ -242,10 +251,10 @@ func getDotOutput(cluster *eks.EKSCluster) (string, error) {
 	return sb.String(), nil*/
 }
 
-func getCsvOutput(cluster *eks.EKSCluster) (string, error) {
+func getCsvOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	sb := new(strings.Builder)
 	sb.WriteString("namespace,pod,service_account,role_arn")
-	for namespace, pods := range cluster.PodsByNamespace {
+	for namespace, pods := range resolver.PodsByNamespace {
 		for _, pod := range pods {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue
