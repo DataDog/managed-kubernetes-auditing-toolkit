@@ -4,9 +4,25 @@ import (
 	"path/filepath"
 )
 
+type PrincipalType string
+
+const (
+	PrincipalTypeUnknown       = PrincipalType("")
+	PrincipalTypeAny           = "[any]"
+	PrincipalTypeAWS           = PrincipalType("AWS")
+	PrincipalTypeService       = PrincipalType("Service")
+	PrincipalTypeFederated     = PrincipalType("Federated")
+	PrincipalTypeCanonicalUser = PrincipalType("CanonicalUser")
+)
+
+type Principal struct {
+	Type PrincipalType
+	ID   string
+}
+
 type PolicyStatement struct {
 	Effect            AuthorizationDecision
-	AllowedPrincipals []string
+	AllowedPrincipals []*Principal
 	AllowedActions    []string
 	Conditions        []*Condition
 }
@@ -58,11 +74,17 @@ func (m *PolicyStatement) actionMatches(action string) bool {
 	return false
 }
 
-func (m *PolicyStatement) principalMatches(principal string) bool {
-	// TODO behavior
-	// TODO: should we ignore Principal if empty? or say it should always be filled since we're in context of a RBP
+func (m *PolicyStatement) principalMatches(principal *Principal) bool {
 	for _, allowedPrincipal := range m.AllowedPrincipals {
-		if match, err := filepath.Match(allowedPrincipal, principal); match && err == nil {
+		if allowedPrincipal.Type == PrincipalTypeAny {
+			return true
+		}
+
+		if allowedPrincipal.Type != principal.Type {
+			continue
+		}
+
+		if match, err := filepath.Match(allowedPrincipal.ID, principal.ID); match && err == nil {
 			return true
 		}
 	}

@@ -5,7 +5,7 @@ import "testing"
 func allowPolicyStatementThatNeverMatches() *PolicyStatement {
 	return &PolicyStatement{
 		Effect:            AuthorizationDecisionAllow,
-		AllowedPrincipals: []string{},
+		AllowedPrincipals: []*Principal{},
 		AllowedActions:    []string{},
 		Conditions:        []*Condition{},
 	}
@@ -14,7 +14,7 @@ func allowPolicyStatementThatNeverMatches() *PolicyStatement {
 func allowPolicyStatementThatAlwaysMatches() *PolicyStatement {
 	return &PolicyStatement{
 		Effect:            AuthorizationDecisionAllow,
-		AllowedPrincipals: []string{"*"},
+		AllowedPrincipals: []*Principal{{Type: PrincipalTypeUnknown, ID: "*"}},
 		AllowedActions:    []string{"*"},
 		Conditions:        []*Condition{},
 	}
@@ -23,7 +23,7 @@ func allowPolicyStatementThatAlwaysMatches() *PolicyStatement {
 func explicitDenyThatAlwaysMatches() *PolicyStatement {
 	return &PolicyStatement{
 		Effect:            AuthorizationDecisionDeny,
-		AllowedPrincipals: []string{"*"},
+		AllowedPrincipals: []*Principal{{Type: PrincipalTypeUnknown, ID: "*"}},
 		AllowedActions:    []string{"*"},
 		Conditions:        []*Condition{},
 	}
@@ -69,7 +69,7 @@ func TestPolicy(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.Name, func(t *testing.T) {
-			result := *scenario.Policy.Authorize(&AuthorizationContext{})
+			result := *scenario.Policy.Authorize(&AuthorizationContext{Principal: &Principal{PrincipalTypeUnknown, "foo"}})
 			if result != scenario.Expect {
 				t.Errorf("Expected %v, got %v", scenario.Expect, result)
 			}

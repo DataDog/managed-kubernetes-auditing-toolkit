@@ -17,11 +17,11 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 			},
 			Context: AuthorizationContext{
 				Action:      "ec2:CreateInstance",
-				Principal:   "foo",
+				Principal:   &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{},
 			},
 			Expect: AuthorizationResultAllow,
@@ -31,11 +31,11 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 			},
 			Context: AuthorizationContext{
 				Action:      "ec2:SomethingElse",
-				Principal:   "foo",
+				Principal:   &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{},
 			},
 			Expect: AuthorizationResultNoDecision,
@@ -45,11 +45,11 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"foobar"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAWS, ID: "foobar"}},
 			},
 			Context: AuthorizationContext{
 				Action:      "ec2:CreateInstance",
-				Principal:   "foo",
+				Principal:   &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{},
 			},
 			Expect: AuthorizationResultNoDecision,
@@ -59,11 +59,11 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionDeny,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 			},
 			Context: AuthorizationContext{
 				Action:      "ec2:CreateInstance",
-				Principal:   "foo",
+				Principal:   &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{},
 			},
 			Expect: AuthorizationResultDeny,
@@ -73,11 +73,11 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionDeny,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 			},
 			Context: AuthorizationContext{
 				Action:      "ec2:SomethingElse",
-				Principal:   "foo",
+				Principal:   &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{},
 			},
 			Expect: AuthorizationResultNoDecision,
@@ -87,14 +87,14 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 				Conditions: []*Condition{
 					{Key: "aws:MyKey", Operator: "StringEquals", AllowedValues: []string{"foo"}},
 				},
 			},
 			Context: AuthorizationContext{
 				Action:    "ec2:CreateInstance",
-				Principal: "foo",
+				Principal: &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{
 					"aws:MyKey": "foo",
 				},
@@ -106,14 +106,14 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 				Conditions: []*Condition{
 					{Key: "aws:MyKey", Operator: "StringEquals", AllowedValues: []string{"foo", "bar"}},
 				},
 			},
 			Context: AuthorizationContext{
 				Action:    "ec2:CreateInstance",
-				Principal: "foo",
+				Principal: &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{
 					"aws:MyKey": "bar",
 				},
@@ -125,7 +125,7 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 				Conditions: []*Condition{
 					{Key: "aws:MyKey", Operator: "StringEquals", AllowedValues: []string{"foo"}},
 					{Key: "aws:MyOtherKey", Operator: "StringEquals", AllowedValues: []string{"bar"}},
@@ -133,7 +133,7 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			},
 			Context: AuthorizationContext{
 				Action:    "ec2:CreateInstance",
-				Principal: "foo",
+				Principal: &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{
 					"aws:MyKey":      "foo",
 					"aws:MyOtherKey": "bar",
@@ -146,7 +146,7 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 				Conditions: []*Condition{
 					{Key: "aws:MyKey", Operator: "StringEquals", AllowedValues: []string{"foo", "fooz"}},
 					{Key: "aws:MyOtherKey", Operator: "StringEquals", AllowedValues: []string{"bar", "baz"}},
@@ -154,7 +154,7 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			},
 			Context: AuthorizationContext{
 				Action:    "ec2:CreateInstance",
-				Principal: "foo",
+				Principal: &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{
 					"aws:MyKey":      "fooz",
 					"aws:MyOtherKey": "bar",
@@ -167,14 +167,14 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 				Conditions: []*Condition{
 					{Key: "aws:InstanceType", Operator: "StringLike", AllowedValues: []string{"t2.*"}},
 				},
 			},
 			Context: AuthorizationContext{
 				Action:    "ec2:CreateInstance",
-				Principal: "foo",
+				Principal: &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{
 					"aws:InstanceType": "t2.medium",
 				},
@@ -186,14 +186,14 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			Statement: PolicyStatement{
 				Effect:            AuthorizationDecisionAllow,
 				AllowedActions:    []string{"ec2:CreateInstance"},
-				AllowedPrincipals: []string{"*"},
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
 				Conditions: []*Condition{
 					{Key: "aws:InstanceType", Operator: "StringLike", AllowedValues: []string{"t2.*"}},
 				},
 			},
 			Context: AuthorizationContext{
 				Action:    "ec2:CreateInstance",
-				Principal: "foo",
+				Principal: &Principal{Type: PrincipalTypeAWS, ID: "foo"},
 				ContextKeys: map[string]string{
 					"aws:InstanceType": "m3.2xlarge",
 				},
