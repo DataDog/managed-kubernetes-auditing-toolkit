@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/awalterschulze/gographviz"
@@ -115,11 +114,6 @@ func getTextOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	})
 	t.AppendHeader(table.Row{"Namespace", "Service Account", "Pod", "Assumable Role ARN"})
 	var found = false
-	for _, serviceAccounts := range resolver.ServiceAccountsByNamespace {
-		for _, serviceAccount := range serviceAccounts {
-			log.Println(strconv.Itoa(len(serviceAccount.AssumableRoles)))
-		}
-	}
 	for namespace, pods := range resolver.PodsByNamespace {
 		for _, pod := range pods {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
@@ -201,54 +195,6 @@ func getDotOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	}
 
 	return graphViz.String(), nil
-	/*g := graph.New(graph.StringHash, graph.Directed(), graph.Acyclic())
-
-	for namespace, pods := range cluster.PodsByNamespace {
-		for _, pod := range pods {
-			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
-				continue
-			}
-			podLabel := fmt.Sprintf("Pod %s/%s", namespace, pod.Name)
-
-			g.AddVertex(podLabel,
-				graph.VertexAttribute("shape", "box"),
-				graph.VertexAttribute("rank", "same"),
-			)
-		}
-	}
-
-	for namespace, pods := range cluster.PodsByNamespace {
-		for _, pod := range pods {
-			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
-				continue
-			}
-			podLabel := fmt.Sprintf("Pod %s/%s", namespace, pod.Name)
-			for _, role := range pod.ServiceAccount.AssumableRoles {
-				parsedArn, _ := arn.Parse(role.Arn)
-				roleLabel := fmt.Sprintf("IAM Role %s", parsedArn.Resource)
-
-				g.AddVertex(
-					roleLabel,
-					graph.VertexAttribute("style", "filled"),
-					graph.VertexAttribute("shape", "box"),
-					graph.VertexAttribute("fillcolor", "#BFEFFF"),
-					graph.VertexAttribute("rank", "max"),
-				)
-
-				g.AddEdge(
-					podLabel, roleLabel,
-					//graph.EdgeAttribute("label", "can assume"),
-				)
-			}
-		}
-	}
-
-	sb := new(strings.Builder)
-	if err := draw.DOT(g, sb); err != nil {
-		return "", err
-	}
-
-	return sb.String(), nil*/
 }
 
 func getCsvOutput(resolver *role_relationships.EKSCluster) (string, error) {

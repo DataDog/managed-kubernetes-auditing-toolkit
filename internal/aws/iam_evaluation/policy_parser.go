@@ -128,7 +128,7 @@ func parsePrincipals(principals interface{}) ([]*Principal, error) {
 			if err != nil {
 				return nil, err
 			}
-			results = append(results, result...) //TODO pointers
+			results = append(results, result...)
 		}
 		return results, nil
 	default:

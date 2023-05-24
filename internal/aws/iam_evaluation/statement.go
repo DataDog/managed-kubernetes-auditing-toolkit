@@ -65,7 +65,6 @@ func (m *PolicyStatement) conditionsMatch(context *AuthorizationContext) bool {
 
 func (m *PolicyStatement) actionMatches(action string) bool {
 	//TODO ignore case?
-	//TODO: reproduce better how wildcard works in AWS
 	for _, allowedAction := range m.AllowedActions {
 		if match, err := filepath.Match(allowedAction, action); match && err == nil {
 			return true
