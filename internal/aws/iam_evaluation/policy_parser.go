@@ -108,16 +108,22 @@ func parseSingleCondition(operator string, values map[string]interface{}) ([]*Co
 }
 
 func parsePrincipals(principals interface{}) ([]*Principal, error) {
-	switch principals.(type) {
+
+	// Case 1: principals is a string and contains "*"
+	// Case 2: principals is a map, each entry of the form
+	// ("AWS" | "Federated" | "Service" | "CanonicalUser") :
+	//    [<principal_id_string>, <principal_id_string>, ...]
+
+	switch principals := principals.(type) {
 	case string:
-		if principals.(string) == "*" {
+		if principals == "*" {
 			return []*Principal{{Type: PrincipalTypeUnknown, ID: "*"}}, nil
 		} else {
-			return nil, fmt.Errorf("invalid principal: %s", principals.(string))
+			return nil, fmt.Errorf("invalid principal: %s", principals)
 		}
 	case map[string]interface{}:
 		results := []*Principal{}
-		for principalType, principalValue := range principals.(map[string]interface{}) {
+		for principalType, principalValue := range principals {
 			result, err := parseSinglePrincipal(principalType, principalValue)
 			if err != nil {
 				return nil, err
@@ -128,12 +134,6 @@ func parsePrincipals(principals interface{}) ([]*Principal, error) {
 	default:
 		return nil, fmt.Errorf("invalid principal: %v", principals)
 	}
-
-	return nil, nil
-	// Case 1: principals is a string and contains "*"
-	// Case 2: principals is a map, each entry of the form
-	// ("AWS" | "Federated" | "Service" | "CanonicalUser") :
-	//    [<principal_id_string>, <principal_id_string>, ...]
 }
 
 func parseSinglePrincipal(rawPrincipalType string, principalId interface{}) ([]*Principal, error) {

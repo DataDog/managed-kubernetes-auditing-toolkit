@@ -47,11 +47,7 @@ type EKSCluster struct {
 	PodsByNamespace            map[string][]*K8sPod
 }
 
-func NewEKSClusterAnalyzer(clusterName string) *EKSCluster {
-	return &EKSCluster{Name: clusterName}
-}
-
-func (m *EKSCluster) ResolveClusterRoles() error {
+func (m *EKSCluster) AnalyzeRoleRelationships() error {
 	log.Println("Retrieving cluster OIDC issuer")
 	clusterInfo, err := eks.NewFromConfig(*m.AwsClient).DescribeCluster(context.Background(), &eks.DescribeClusterInput{
 		Name: &m.Name,
@@ -81,13 +77,20 @@ func (m *EKSCluster) ResolveClusterRoles() error {
 	}
 	m.PodsByNamespace = podsByNamespace
 
-	// For every namespace and every pod, find the roles that a pod can assume
 	roles, err := m.getIAMRoles()
 	log.Printf("Analyzing the trust policy of %d IAM roles", len(roles))
 	if err != nil {
 		return err
 	}
 	for _, role := range roles {
+		// Parse the role trust policy
+		trustPolicy, err := iam_evaluation.ParseRoleTrustPolicy(role.TrustPolicy)
+		if err != nil {
+			log.Println("[WARNING] Could not parse the trust policy of " + role.Arn + ", ignoring. Error: " + err.Error())
+			continue
+		}
+
+		// Iterate over all service accounts in the cluster and figure out which ones can assume the role
 		for namespace, serviceAccounts := range m.ServiceAccountsByNamespace {
 			for _, serviceAccount := range serviceAccounts {
 				authzContext := iam_evaluation.AuthorizationContext{
@@ -101,10 +104,7 @@ func (m *EKSCluster) ResolveClusterRoles() error {
 						fmt.Sprintf("%s:aud", m.IssuerURL): "sts.amazonaws.com",
 					},
 				}
-				trustPolicy, err := iam_evaluation.ParseRoleTrustPolicy(role.TrustPolicy)
-				if err != nil {
-					return err // TODO: warning instead
-				}
+
 				if *trustPolicy.Authorize(&authzContext) == iam_evaluation.AuthorizationResultAllow {
 					serviceAccount.AssumableRoles = append(serviceAccount.AssumableRoles, role)
 				}

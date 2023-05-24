@@ -68,7 +68,7 @@ func doFindRoleRelationshipsCommand(targetCluster string) error {
 		AwsClient: utils.AWSClient(),
 		Name:      targetCluster,
 	}
-	err := resolver.ResolveClusterRoles()
+	err := resolver.AnalyzeRoleRelationships()
 	if err != nil {
 		log.Fatalf("unable to analyze cluster role relationships: %v", err)
 	}
