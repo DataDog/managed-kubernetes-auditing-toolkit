@@ -22,10 +22,3 @@ var (
 	AuthorizationResultAllow      = AuthorizationResult{Decision: AuthorizationDecisionAllow}
 	AuthorizationResultNoDecision = AuthorizationResult{Decision: ""}
 )
-
-type RoleTrustPolicyEvaluator struct {
-}
-
-func (m *RoleTrustPolicyEvaluator) Authorize(authorizationContext *AuthorizationContext) error {
-	return nil
-}

@@ -1,6 +1,7 @@
 package iam_evaluation
 
 import (
+	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
 	"path/filepath"
 	"strings"
 )
@@ -23,12 +24,13 @@ var ConditionOperators = map[string]func(string, string) bool{
 
 func (m *Condition) Matches(context *AuthorizationContext) bool {
 	operatorFunc, found := ConditionOperators[strings.ToLower(m.Operator)]
+	contextKeysMap := utils.NewCaseInsensitiveMap(&context.ContextKeys)
 	if !found {
 		// unknown operator, the condition cannot match
 		return false
 	}
 	for _, allowedValue := range m.AllowedValues {
-		contextKey, hasContextKey := context.ContextKeys[m.Key]
+		contextKey, hasContextKey := contextKeysMap.Get(m.Key)
 		if hasContextKey && operatorFunc(contextKey, allowedValue) {
 			return true
 		}

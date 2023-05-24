@@ -49,6 +49,16 @@ func TestConditionStringEquals(t *testing.T) {
 			&AuthorizationContext{ContextKeys: map[string]string{"foo": "bar"}},
 			true,
 		},
+		{
+			"condition keys are not case sensitive, per https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html",
+			&Condition{
+				Key:           "AWS:SourceIp",
+				Operator:      "StringEquals",
+				AllowedValues: []string{"foo"},
+			},
+			&AuthorizationContext{ContextKeys: map[string]string{"aws:sourceip": "foo"}},
+			true,
+		},
 	}
 
 	for _, scenario := range scenarios {

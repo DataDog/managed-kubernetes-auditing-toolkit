@@ -2,6 +2,7 @@ package iam_evaluation
 
 import (
 	"path/filepath"
+	"strings"
 )
 
 type PrincipalType string
@@ -64,9 +65,9 @@ func (m *PolicyStatement) conditionsMatch(context *AuthorizationContext) bool {
 }
 
 func (m *PolicyStatement) actionMatches(action string) bool {
-	//TODO ignore case?
+	action = strings.ToLower(action)
 	for _, allowedAction := range m.AllowedActions {
-		if match, err := filepath.Match(allowedAction, action); match && err == nil {
+		if match, err := filepath.Match(strings.ToLower(allowedAction), action); match && err == nil {
 			return true
 		}
 	}

@@ -200,6 +200,21 @@ func TestPolicyStatement_Authorize(t *testing.T) {
 			},
 			Expect: AuthorizationResultNoDecision,
 		},
+		{
+			Name: "Action matching should be case-insensitive",
+			Statement: PolicyStatement{
+				Effect:            AuthorizationDecisionAllow,
+				AllowedPrincipals: []*Principal{{Type: PrincipalTypeAny}},
+				AllowedActions:    []string{"EC2:CreateInstance"},
+				Conditions:        []*Condition{},
+			},
+			Context: AuthorizationContext{
+				Action:      "ec2:CreateInstance",
+				Principal:   &Principal{Type: PrincipalTypeAWS, ID: "foo"},
+				ContextKeys: map[string]string{},
+			},
+			Expect: AuthorizationResultAllow,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
