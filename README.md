@@ -38,7 +38,7 @@ MKAT can identify the trust relationships between K8s service accounts and AWS I
 It works by looking both at the trust policy of the IAM roles, and at the service accounts that are associated with the pods running in the cluster.
 
 ```bash
-$ mkat eks find-role-role-relationships
+$ mkat eks find-role-relationships
               _              _
   _ __ ___   | | __   __ _  | |_
  | '_ ` _ \  | |/ /  / _` | | __|
@@ -65,7 +65,7 @@ $ mkat eks find-role-role-relationships
 It can also generate a `dot` output for graphic visualization:
  
 ```bash
-$ mkat eks find-role-role-relationships --output-format dot --output-file roles.dot
+$ mkat eks find-role-relationships --output-format dot --output-file roles.dot
 $ dot -Tpng -O roles.dot
 $ open roles.dot.png
 ```
