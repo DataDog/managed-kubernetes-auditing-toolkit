@@ -18,7 +18,7 @@ func (m *Policy) Authorize(context *AuthorizationContext) *AuthorizationResult {
 
 	if willAllow {
 		return &AuthorizationResultAllow
-	} else {
-		return &AuthorizationResultDeny // implicit deny
 	}
+
+	return &AuthorizationResultDeny // implicit deny
 }

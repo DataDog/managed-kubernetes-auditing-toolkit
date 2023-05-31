@@ -79,10 +79,9 @@ func doFindRoleRelationshipsCommand(targetCluster string) error {
 	if outputFile != "" {
 		log.Println("Writing " + strings.ToUpper(outputFormat) + " output to " + outputFile)
 		return os.WriteFile(outputFile, []byte(output), 0644)
-	} else {
-		print(output)
 	}
 
+	print(output)
 	return nil
 }
 
@@ -128,18 +127,17 @@ func getTextOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	}
 	if !found {
 		return "No service accounts found that can assume AWS roles", nil
-	} else {
-		return t.Render(), nil
 	}
+	return t.Render(), nil
 }
 
 type Vertex struct {
-	Id    int
+	ID    int
 	Label string
 }
 
-func (v *Vertex) ID() int {
-	return v.Id
+func (v *Vertex) GetID() int {
+	return v.ID
 }
 func getDotOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	graphAst, _ := gographviz.ParseString(`digraph G { }`)

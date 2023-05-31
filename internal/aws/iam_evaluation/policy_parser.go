@@ -31,7 +31,7 @@ func ParseRoleTrustPolicy(policy string) (*Policy, error) {
 		}
 		resultPolicy.Statements = append(resultPolicy.Statements, statement)
 	}
-	
+
 	return &resultPolicy, nil
 }
 
@@ -107,9 +107,8 @@ func parsePrincipals(principals interface{}) ([]*Principal, error) {
 	case string:
 		if principals == "*" {
 			return []*Principal{{Type: PrincipalTypeUnknown, ID: "*"}}, nil
-		} else {
-			return nil, fmt.Errorf("invalid principal: %s", principals)
 		}
+		return nil, fmt.Errorf("invalid principal: %s", principals)
 	case map[string]interface{}:
 		results := []*Principal{}
 		for principalType, principalValue := range principals {
@@ -125,7 +124,7 @@ func parsePrincipals(principals interface{}) ([]*Principal, error) {
 	}
 }
 
-func parseSinglePrincipal(rawPrincipalType string, principalId interface{}) ([]*Principal, error) {
+func parseSinglePrincipal(rawPrincipalType string, principalID interface{}) ([]*Principal, error) {
 	types := map[string]PrincipalType{
 		"aws":           PrincipalTypeAWS,
 		"federated":     PrincipalTypeFederated,
@@ -136,9 +135,9 @@ func parseSinglePrincipal(rawPrincipalType string, principalId interface{}) ([]*
 	if !ok {
 		return nil, fmt.Errorf("invalid principal type: %s", rawPrincipalType)
 	}
-	values, err := ensureStringArray(principalId)
+	values, err := ensureStringArray(principalID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid principal value: %v", principalId)
+		return nil, fmt.Errorf("invalid principal value: %v", principalID)
 	}
 
 	principals := []*Principal{}

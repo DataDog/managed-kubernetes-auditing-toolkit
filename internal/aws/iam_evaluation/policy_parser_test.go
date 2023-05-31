@@ -145,7 +145,7 @@ func Test_ensureStringArray(t *testing.T) {
 func Test_parseSinglePrincipal(t *testing.T) {
 	type args struct {
 		rawPrincipalType string
-		principalId      interface{}
+		principalID      interface{}
 	}
 	tests := []struct {
 		name    string
@@ -157,7 +157,7 @@ func Test_parseSinglePrincipal(t *testing.T) {
 			name: "parse string principal",
 			args: args{
 				rawPrincipalType: "aws",
-				principalId:      "foo",
+				principalID:      "foo",
 			},
 			want: []*Principal{{Type: PrincipalTypeAWS, ID: "foo"}},
 		},
@@ -165,7 +165,7 @@ func Test_parseSinglePrincipal(t *testing.T) {
 			name: "parse array principal",
 			args: args{
 				rawPrincipalType: "federated",
-				principalId:      []string{"foo", "bar"},
+				principalID:      []string{"foo", "bar"},
 			},
 			want: []*Principal{
 				{Type: PrincipalTypeFederated, ID: "foo"},
@@ -176,14 +176,14 @@ func Test_parseSinglePrincipal(t *testing.T) {
 			name: "parse invalid principal",
 			args: args{
 				rawPrincipalType: "IDoNotExist",
-				principalId:      "foo",
+				principalID:      "foo",
 			},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseSinglePrincipal(tt.args.rawPrincipalType, tt.args.principalId)
+			got, err := parseSinglePrincipal(tt.args.rawPrincipalType, tt.args.principalID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseSinglePrincipal() error = %v, wantErr %v", err, tt.wantErr)
 				return
