@@ -31,18 +31,7 @@ func ParseRoleTrustPolicy(policy string) (*Policy, error) {
 		}
 		resultPolicy.Statements = append(resultPolicy.Statements, statement)
 	}
-
-	resultPolicy.Authorize(&AuthorizationContext{
-		Action: "sts:AssumeRole",
-		Principal: &Principal{
-			Type: PrincipalTypeAWS,
-			ID:   "arn:aws:iam::123456789012:root",
-		},
-		ContextKeys: map[string]string{
-			"aws:SourceIP": "D",
-		},
-	})
-
+	
 	return &resultPolicy, nil
 }
 
