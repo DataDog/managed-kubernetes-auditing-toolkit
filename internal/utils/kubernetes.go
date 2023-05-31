@@ -47,7 +47,7 @@ func K8sClient() *kubernetes.Clientset {
 }
 
 func IsEKS() bool {
-	return strings.HasSuffix(getConfig().Host, ".eks.amazonaws.com")
+	return strings.Contains(getConfig().Host, ".eks.amazonaws.com")
 }
 
 func GetEKSClusterName() string {
