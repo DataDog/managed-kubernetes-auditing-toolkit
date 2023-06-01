@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var ignoreEksHostnameCheck bool
+
 func BuildEksSubcommand() *cobra.Command {
 	eksCommand := &cobra.Command{
 		Use:   "eks",
@@ -16,7 +18,7 @@ func BuildEksSubcommand() *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			figure.NewFigure("mkat", "", true).Print()
 			println()
-			if !utils.IsEKS() {
+			if !ignoreEksHostnameCheck && !utils.IsEKS() {
 				return errors.New("you do not seem to be connected to an EKS cluster. Connect to an EKS cluster and try again")
 			}
 			clusterName := utils.GetEKSClusterName()
@@ -27,6 +29,7 @@ func BuildEksSubcommand() *cobra.Command {
 		},
 	}
 
+	eksCommand.PersistentFlags().BoolVarP(&ignoreEksHostnameCheck, "skip-eks-hostname-check", "", false, "Don't check that the hostname of your current API server ends with .eks.amazonaws.com")
 	eksCommand.AddCommand(buildEksRoleRelationshipsCommand())
 	eksCommand.AddCommand(buildEksFindSecretsCommand())
 	eksCommand.AddCommand(buildTestImdsAccessCommand())
