@@ -54,7 +54,7 @@ func buildEksRoleRelationshipsCommand() *cobra.Command {
 				cluster = eksClusterName
 			}
 			if cluster == "" {
-				return errors.New("unable to determine your current EKS cluster name")
+				return errors.New("unable to determine your current EKS cluster name. Try specifying it explicitely with the --eks-cluster-name flag")
 			}
 			return doFindRoleRelationshipsCommand(cluster)
 		},
@@ -63,7 +63,7 @@ func buildEksRoleRelationshipsCommand() *cobra.Command {
 	eksRoleRelationshipsCommand.Flags().StringVarP(&outputFormat, "output-format", "f", DefaultOutputFormat, "Output format. Supported formats: "+strings.Join(availableOutputFormats, ", "))
 	eksRoleRelationshipsCommand.Flags().StringVarP(&outputFile, "output-file", "o", "", "Output file. If not specified, output will be printed to stdout.")
 	eksRoleRelationshipsCommand.Flags().StringVarP(&eksClusterName, "eks-cluster-name", "", "", "When the EKS cluster name cannot be automatically detected from your KubeConfig, specify this argument to pass the EKS cluster name of your current kubectl context")
-	
+
 	return eksRoleRelationshipsCommand
 }
 
