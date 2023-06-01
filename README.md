@@ -119,7 +119,9 @@ $ mkat eks test-imds-access
 2023/04/12 00:35:15 IMDS is accessible and allows any pod to retrieve credentials for the AWS role eksctl-mkat-cluster-nodegroup-ng-NodeInstanceRole-AXWUFF35602Z
 ```
 
-## How does MKAT compare to other tools?
+## FAQ 
+
+### How does MKAT compare to other tools?
 
 | **Tool** | **Description** |
 |:---:|:---:|
@@ -132,6 +134,10 @@ $ mkat eks test-imds-access
 | [kubeletmein](https://github.com/4ARMED/kubeletmein) | kubeletmein _is_ specific to managed K8s environments. It's an utility to generate a kubeconfig file using the node's IAM credentials, to then use it in a compromised pod. |
 | [hardeneks](https://github.com/aws-samples/hardeneks) | hardeneks _is_ specific to managed K8s environments, but only for EKS. It identifies issues and lack of best practices inside of the cluster, and does not focus on cluster to cloud pivots. |
 
+### What permissions does MKAT need to run?
+
+See [this page](./permissions.md) for a detailed list of the permissions MKAT needs to run.
+
 ## Roadmap
 
 We currently plan to:
@@ -139,3 +145,7 @@ We currently plan to:
 * Add support for GCP GKE
 * Allow scanning for additional types of cloud credentials
 * Enhance the IAM role trust policy evaluation logic to take into account additional edge cases
+
+## Acknowledgements
+
+Thank you to Rami McCarthi and Mikail Tunç for their early testing and actionable feedback on MKAT!
