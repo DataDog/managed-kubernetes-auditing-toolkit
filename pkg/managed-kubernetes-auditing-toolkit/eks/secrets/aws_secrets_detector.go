@@ -28,24 +28,27 @@ func (m *SecretsDetector) FindSecrets() ([]*SecretInfo, error) {
 
 	log.Println("Searching for AWS secrets in ConfigMaps...")
 	configMapCredentials, err := m.findCredentialsInConfigMaps()
-	if err != nil {
-		return nil, err
+	if err == nil {
+		secrets = append(secrets, configMapCredentials...)
+	} else {
+		log.Println("[WARN] Unable to access ConfigMaps: " + err.Error())
 	}
-	secrets = append(secrets, configMapCredentials...)
 
 	log.Println("Searching for AWS secrets in Secrets...")
 	secretCredentials, err := m.findCredentialsInSecrets()
-	if err != nil {
-		return nil, err
+	if err == nil {
+		secrets = append(secrets, secretCredentials...)
+	} else {
+		log.Println("[WARN] Unable to access Secrets: " + err.Error())
 	}
-	secrets = append(secrets, secretCredentials...)
 
 	log.Println("Searching for AWS secrets in Pod definitions...")
 	podCredentials, err := m.findCredentialsInPodDefinitions()
-	if err != nil {
-		return nil, err
+	if err == nil {
+		secrets = append(secrets, podCredentials...)
+	} else {
+		log.Println("[WARN] Unable to access Pod definitions: " + err.Error())
 	}
-	secrets = append(secrets, podCredentials...)
 
 	return secrets, nil
 }
