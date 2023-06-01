@@ -2,6 +2,7 @@ package utils
 
 import (
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,8 +47,13 @@ func K8sClient() *kubernetes.Clientset {
 	return k8sClient
 }
 
+// IsEKS determines if the cluster in the current context does appear to be an EKS cluster
 func IsEKS() bool {
-	return strings.HasSuffix(getConfig().Host, ".eks.amazonaws.com")
+	parsedUrl, err := url.Parse(getConfig().Host)
+	if err != nil {
+		return false
+	}
+	return strings.HasSuffix(parsedUrl.Host, ".eks.amazonaws.com")
 }
 
 func GetEKSClusterName() string {

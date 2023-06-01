@@ -10,7 +10,6 @@ import (
 	"github.com/awalterschulze/gographviz"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/utils"
-	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/pkg/managed-kubernetes-auditing-toolkit/eks/role_relationships"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -22,6 +21,7 @@ import (
 // Command-line arguments
 var outputFormat string
 var outputFile string
+var eksClusterName string
 
 // Output formats
 const (
@@ -50,7 +50,11 @@ func buildEksRoleRelationshipsCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cluster := utils.GetEKSClusterName()
 			if cluster == "" {
-				return errors.New("unable to determine your current EKS cluster name")
+				// If we cannot determine the EKS cluster name automatically, give the user a chance to specify it on the CLI
+				cluster = eksClusterName
+			}
+			if cluster == "" {
+				return errors.New("unable to determine your current EKS cluster name. Try specifying it explicitely with the --eks-cluster-name flag")
 			}
 			return doFindRoleRelationshipsCommand(cluster)
 		},
@@ -58,45 +62,50 @@ func buildEksRoleRelationshipsCommand() *cobra.Command {
 
 	eksRoleRelationshipsCommand.Flags().StringVarP(&outputFormat, "output-format", "f", DefaultOutputFormat, "Output format. Supported formats: "+strings.Join(availableOutputFormats, ", "))
 	eksRoleRelationshipsCommand.Flags().StringVarP(&outputFile, "output-file", "o", "", "Output file. If not specified, output will be printed to stdout.")
+	eksRoleRelationshipsCommand.Flags().StringVarP(&eksClusterName, "eks-cluster-name", "", "", "When the EKS cluster name cannot be automatically detected from your KubeConfig, specify this argument to pass the EKS cluster name of your current kubectl context")
+
 	return eksRoleRelationshipsCommand
 }
 
 // Actual logic implementing the "find-role-relationships" command
 func doFindRoleRelationshipsCommand(targetCluster string) error {
-	resolver := role_relationships.EKSClusterRolesResolver{K8sClient: utils.K8sClient(), AwsClient: utils.AWSClient()}
-	cluster, err := resolver.ResolveClusterRoles(targetCluster)
+	resolver := role_relationships.EKSCluster{
+		K8sClient: utils.K8sClient(),
+		AwsClient: utils.AWSClient(),
+		Name:      targetCluster,
+	}
+	err := resolver.AnalyzeRoleRelationships()
 	if err != nil {
 		log.Fatalf("unable to analyze cluster role relationships: %v", err)
 	}
 
-	output, err := getOutput(cluster)
+	output, err := getOutput(&resolver)
 	if err != nil {
 		return err
 	}
 	if outputFile != "" {
 		log.Println("Writing " + strings.ToUpper(outputFormat) + " output to " + outputFile)
 		return os.WriteFile(outputFile, []byte(output), 0644)
-	} else {
-		print(output)
 	}
 
+	print(output)
 	return nil
 }
 
-func getOutput(cluster *eks.EKSCluster) (string, error) {
+func getOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	switch outputFormat {
 	case TextOutputFormat:
-		return getTextOutput(cluster)
+		return getTextOutput(resolver)
 	case DotOutputFormat:
-		return getDotOutput(cluster)
+		return getDotOutput(resolver)
 	case CsvOutputFormat:
-		return getCsvOutput(cluster)
+		return getCsvOutput(resolver)
 	default:
 		return "", fmt.Errorf("unsupported output format %s", outputFormat)
 	}
 }
 
-func getTextOutput(cluster *eks.EKSCluster) (string, error) {
+func getTextOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	t := table.NewWriter()
 	if term.IsTerminal(0) {
 		width, _, err := term.GetSize(0)
@@ -111,7 +120,7 @@ func getTextOutput(cluster *eks.EKSCluster) (string, error) {
 	})
 	t.AppendHeader(table.Row{"Namespace", "Service Account", "Pod", "Assumable Role ARN"})
 	var found = false
-	for namespace, pods := range cluster.PodsByNamespace {
+	for namespace, pods := range resolver.PodsByNamespace {
 		for _, pod := range pods {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue
@@ -125,20 +134,19 @@ func getTextOutput(cluster *eks.EKSCluster) (string, error) {
 	}
 	if !found {
 		return "No service accounts found that can assume AWS roles", nil
-	} else {
-		return t.Render(), nil
 	}
+	return t.Render(), nil
 }
 
 type Vertex struct {
-	Id    int
+	ID    int
 	Label string
 }
 
-func (v *Vertex) ID() int {
-	return v.Id
+func (v *Vertex) GetID() int {
+	return v.ID
 }
-func getDotOutput(cluster *eks.EKSCluster) (string, error) {
+func getDotOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	graphAst, _ := gographviz.ParseString(`digraph G { }`)
 	graphViz := gographviz.NewGraph()
 	gographviz.Analyse(graphAst, graphViz)
@@ -150,7 +158,7 @@ func getDotOutput(cluster *eks.EKSCluster) (string, error) {
 	graphViz.AddAttr("G", "overlap", "false")
 	graphViz.AddAttr("G", "newrank", "true")
 
-	for namespace, pods := range cluster.PodsByNamespace {
+	for namespace, pods := range resolver.PodsByNamespace {
 		subgraph := fmt.Sprintf(` "cluster_%s" `, namespace)
 		graphViz.AddSubGraph("G", subgraph, map[string]string{
 			"rank":  "same",
@@ -192,60 +200,12 @@ func getDotOutput(cluster *eks.EKSCluster) (string, error) {
 	}
 
 	return graphViz.String(), nil
-	/*g := graph.New(graph.StringHash, graph.Directed(), graph.Acyclic())
-
-	for namespace, pods := range cluster.PodsByNamespace {
-		for _, pod := range pods {
-			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
-				continue
-			}
-			podLabel := fmt.Sprintf("Pod %s/%s", namespace, pod.Name)
-
-			g.AddVertex(podLabel,
-				graph.VertexAttribute("shape", "box"),
-				graph.VertexAttribute("rank", "same"),
-			)
-		}
-	}
-
-	for namespace, pods := range cluster.PodsByNamespace {
-		for _, pod := range pods {
-			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
-				continue
-			}
-			podLabel := fmt.Sprintf("Pod %s/%s", namespace, pod.Name)
-			for _, role := range pod.ServiceAccount.AssumableRoles {
-				parsedArn, _ := arn.Parse(role.Arn)
-				roleLabel := fmt.Sprintf("IAM Role %s", parsedArn.Resource)
-
-				g.AddVertex(
-					roleLabel,
-					graph.VertexAttribute("style", "filled"),
-					graph.VertexAttribute("shape", "box"),
-					graph.VertexAttribute("fillcolor", "#BFEFFF"),
-					graph.VertexAttribute("rank", "max"),
-				)
-
-				g.AddEdge(
-					podLabel, roleLabel,
-					//graph.EdgeAttribute("label", "can assume"),
-				)
-			}
-		}
-	}
-
-	sb := new(strings.Builder)
-	if err := draw.DOT(g, sb); err != nil {
-		return "", err
-	}
-
-	return sb.String(), nil*/
 }
 
-func getCsvOutput(cluster *eks.EKSCluster) (string, error) {
+func getCsvOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	sb := new(strings.Builder)
 	sb.WriteString("namespace,pod,service_account,role_arn")
-	for namespace, pods := range cluster.PodsByNamespace {
+	for namespace, pods := range resolver.PodsByNamespace {
 		for _, pod := range pods {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
 				continue

@@ -1,7 +1,0 @@
-repos:
-- repo: local
-  hooks:
-  - id: thirdparty
-    name: Generate third-party licenses
-    language: system
-    entry: make thirdparty-licenses

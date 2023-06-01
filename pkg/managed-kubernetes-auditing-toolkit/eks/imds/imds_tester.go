@@ -67,9 +67,8 @@ func (m *ImdsTester) TestImdsAccessible() (*ImdsTestResult, error) {
 	}
 	if strings.Contains(podLogs, "Failed to connect") {
 		return &ImdsTestResult{IsImdsAccessible: false}, nil
-	} else {
-		return &ImdsTestResult{IsImdsAccessible: true, NodeRoleName: podLogs}, nil
 	}
+	return &ImdsTestResult{IsImdsAccessible: true, NodeRoleName: podLogs}, nil
 }
 
 func (m *ImdsTester) handleCtrlC() {

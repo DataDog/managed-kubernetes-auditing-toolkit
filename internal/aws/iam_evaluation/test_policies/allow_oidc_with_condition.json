@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::11112222333:oidc-provider/auth.example.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "auth.example.com:sub": "Administrator",
+          "auth.example.com:aud": "MyappWebIdentity"
+        }
+      }
+    }
+  ]
+}
