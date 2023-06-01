@@ -144,7 +144,6 @@ We currently plan to:
 * Add a feature to identify EKS pods that are exposed through an AWS load balancer, through the [aws-load-balancer-controller](https://github.com/kubernetes-sigs/aws-load-balancer-controller)
 * Add support for GCP GKE
 * Allow scanning for additional types of cloud credentials
-* Enhance the IAM role trust policy evaluation logic to take into account additional edge cases
 
 ## Acknowledgements
 
