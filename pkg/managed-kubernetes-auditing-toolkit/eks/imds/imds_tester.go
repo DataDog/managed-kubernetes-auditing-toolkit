@@ -68,8 +68,7 @@ func (m *ImdsTester) TestImdsV2Accessible() (*ImdsTestResult, error) {
 	commandToRun := []string{
 		"sh",
 		"-c",
-		// We use "--max-time" because when the IMDS max-response-hop is enabled, the TCP connection succeeds initially
-		// but then hangs
+		// We use "--max-time" because when the IMDS max-response-hop is set to 1, the TCP connection succeeds initially but hangs indefinitely when calling /latest/api/token
 		`TOKEN=$(curl --show-error --max-time 2 --silent -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 		(curl --silent --show-error --max-time 2 -H "X-aws-ec2-metadata-token: $TOKEN" 169.254.169.254/latest/meta-data/iam/security-credentials/ || true)`,
 	}
