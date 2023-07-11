@@ -44,7 +44,7 @@ type ImdsVersion string
 
 const (
 	IMDSv1 ImdsVersion = "IMDSv1"
-	IMDSv2             = "IMDSv2"
+	IMDSv2 ImdsVersion = "IMDSv2"
 )
 
 func doTestImdsAccess(imdsVersion ImdsVersion, tester *imds.ImdsTester, wg *sync.WaitGroup) {
@@ -63,7 +63,7 @@ func doTestImdsAccess(imdsVersion ImdsVersion, tester *imds.ImdsTester, wg *sync
 	}
 
 	if err != nil {
-		log.Printf("Unable to determine if %s is accessible in your cluster: %s\n", imdsVersion, err.Error)
+		log.Printf("Unable to determine if %s is accessible in your cluster: %s\n", imdsVersion, err.Error())
 		return
 	}
 
