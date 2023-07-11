@@ -104,7 +104,9 @@ $ mkat eks find-secrets
 ### Test if pods can access the AWS Instance Metadata Service (IMDS)
 
 Pods accessing the EKS nodes Instance Metadata Service is a [common and dangerous attack vector](https://blog.christophetd.fr/privilege-escalation-in-aws-elastic-kubernetes-service-eks-by-compromising-the-instance-role-of-worker-nodes/) 
-that can be used to escalate privileges. MKAT can test if pods can access the IMDS. It tests it by creating a temporary pod that tries to access the IMDS, and then deletes it.
+that can be used to escalate privileges. MKAT can test if pods can access the IMDS, both through IMDSv1 and IMDSv2. 
+
+It tests this by creating two temporary pods (one for IMDSv1, one for IMDSv2) that try to access the IMDS, and are then deleted.
 
 ```bash
 $ mkat eks test-imds-access
@@ -114,9 +116,10 @@ $ mkat eks test-imds-access
  | | | | | | |   <  | (_| | | |_
  |_| |_| |_| |_|\_\  \__,_|  \__|
 
-2023/04/12 00:35:10 Connected to EKS cluster mkat-cluster
-2023/04/12 00:35:10 Testing if IMDS is accessible to pods by creating a pod that attempts to access it
-2023/04/12 00:35:15 IMDS is accessible and allows any pod to retrieve credentials for the AWS role eksctl-mkat-cluster-nodegroup-ng-NodeInstanceRole-AXWUFF35602Z
+2023/07/11 21:56:19 Connected to EKS cluster mkat-cluster
+2023/07/11 21:56:19 Testing if IMDSv1 and IMDSv2 are accessible from pods by creating a pod that attempts to access it
+2023/07/11 21:56:23 IMDSv2 is accessible: any pod can retrieve credentials for the AWS role eksctl-mkat-cluster-nodegroup-ng-NodeInstanceRole-AXWUFF35602Z
+2023/07/11 21:56:23 IMDSv1 is not accessible to pods in your cluster: able to establish a network connection to the IMDS, but no credentials were returned
 ```
 
 ## FAQ 
