@@ -5,21 +5,21 @@
 class ManagedKubernetesAuditingToolkit < Formula
   desc ""
   homepage "https://github.com/DataDog/managed-kubernetes-auditing-toolkit"
-  version "0.1.1"
+  version "0.2.0"
   license "Apache-2.0"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/v0.1.1/managed-kubernetes-auditing-toolkit_0.1.1_Darwin_x86_64.tar.gz"
-      sha256 "ff45ed6cedb3f6e8c638d0460501fb00bc7c3ea0813342dc720d33c72eeb9af1"
+      url "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/v0.2.0/managed-kubernetes-auditing-toolkit_Darwin_x86_64.tar.gz"
+      sha256 "30b5f91f595427e3006f7813ed27626d910a1c38ca6e7a0627c74a0972e0dae6"
 
       def install
         bin.install "mkat"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/v0.1.1/managed-kubernetes-auditing-toolkit_0.1.1_Darwin_arm64.tar.gz"
-      sha256 "856c07bc5dc0d2dc5879f20a6f961db7f0f6284799668f9d1354cba53e34b81a"
+      url "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/v0.2.0/managed-kubernetes-auditing-toolkit_Darwin_arm64.tar.gz"
+      sha256 "b826bbc325b228cf6eee2faa01df5457d7aaf171fc374b10ba1bcd1ef90931f6"
 
       def install
         bin.install "mkat"
@@ -29,16 +29,16 @@ class ManagedKubernetesAuditingToolkit < Formula
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/v0.1.1/managed-kubernetes-auditing-toolkit_0.1.1_Linux_x86_64.tar.gz"
-      sha256 "cc080e754370d14431ec63cb6b6476b1ea78c6e69c2cdd66ffb553b100686d25"
+      url "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/v0.2.0/managed-kubernetes-auditing-toolkit_Linux_x86_64.tar.gz"
+      sha256 "44231094bb7f40f27a0897f2bc1656a842c2de670c76c3ee0615d26753af44fc"
 
       def install
         bin.install "mkat"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/v0.1.1/managed-kubernetes-auditing-toolkit_0.1.1_Linux_arm64.tar.gz"
-      sha256 "ad200c70f86cffb4aa6f7eb6c45081ad9453fa1cd005d3ed5226a1123ffe6767"
+      url "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/v0.2.0/managed-kubernetes-auditing-toolkit_Linux_arm64.tar.gz"
+      sha256 "1f56122462a467fa1eaf9a8bc78526ecb85bc13213ad4c778d46be5dbb966fff"
 
       def install
         bin.install "mkat"
