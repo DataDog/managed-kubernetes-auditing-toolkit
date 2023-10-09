@@ -29,7 +29,7 @@ func explicitDenyThatAlwaysMatches() *PolicyStatement {
 	}
 }
 
-func TestPolicy(t *testing.T) {
+func TestPolicyEvaluationResourceBased(t *testing.T) {
 	scenarios := []struct {
 		Name   string
 		Policy Policy
@@ -74,5 +74,44 @@ func TestPolicy(t *testing.T) {
 				t.Errorf("Expected %v, got %v", scenario.Expect, result)
 			}
 		})
+	}
+}
+
+func TestPolicyEvaluationIdentityBased(t *testing.T) {
+
+	scenarios := []struct {
+		Name                 string
+		Policy               Policy
+		AuthorizationContext AuthorizationContext
+		Expect               AuthorizationResult
+	}{
+		{
+			Name:                 "simple policy",
+			Policy:               Policy{Statements: []*PolicyStatement{{Effect: AuthorizationDecisionAllow, AllowedActions: []string{"s3:ListObjects"}, AllowedResources: []string{"my-resource"}}}},
+			AuthorizationContext: AuthorizationContext{Action: "s3:ListObjects", Resource: "my-resource"},
+			Expect:               AuthorizationResultAllow,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.Name, func(t *testing.T) {
+			result := *scenario.Policy.Authorize(&scenario.AuthorizationContext)
+			if result != scenario.Expect {
+				t.Errorf("Expected %v, got %v", scenario.Expect, result)
+			}
+		})
+	}
+}
+
+func TestPolicyMerge(t *testing.T) {
+	policy1 := NewPolicy()
+	policy1.Statements = []*PolicyStatement{allowPolicyStatementThatAlwaysMatches(), allowPolicyStatementThatNeverMatches()}
+
+	policy2 := NewPolicy()
+	policy2.Statements = []*PolicyStatement{allowPolicyStatementThatNeverMatches()}
+
+	policy3 := policy1.Merge(policy2)
+	if len(policy3.Statements) != 3 {
+		t.Errorf("Expected 3 statements, got %d", len(policy3.Statements))
 	}
 }

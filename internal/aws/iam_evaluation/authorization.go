@@ -10,6 +10,7 @@ const (
 type AuthorizationContext struct {
 	Action      string
 	Principal   *Principal
+	Resource    string
 	ContextKeys map[string]string
 }
 

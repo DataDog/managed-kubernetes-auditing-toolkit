@@ -96,11 +96,24 @@ func TestPolicyParser(t *testing.T) {
 				},
 			},
 		},
+		{
+			PolicyFile: "classic_identity_based_policy",
+			WantPolicy: Policy{
+				Statements: []*PolicyStatement{
+					{
+						Effect:           AuthorizationDecisionAllow,
+						AllowedActions:   []string{"s3:ListBuckets"},
+						AllowedResources: []string{"*"},
+						Conditions:       []*Condition{},
+					},
+				},
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.PolicyFile, func(t *testing.T) {
-			policy, err := ParseRoleTrustPolicy(getTestPolicyFile(scenario.PolicyFile))
+			policy, err := ParsePolicyDocument(getTestPolicyFile(scenario.PolicyFile))
 			if (err != nil) != scenario.WantErr {
 				t.Errorf("expected error: %v, got: %v", scenario.WantErr, err)
 			}
@@ -109,6 +122,7 @@ func TestPolicyParser(t *testing.T) {
 				gotStatement := policy.Statements[i]
 				assert.Equal(t, wantStatement.Effect, gotStatement.Effect, "effect statement %d", i)
 				assert.ElementsMatchf(t, wantStatement.AllowedActions, gotStatement.AllowedActions, "actions statement %d", i)
+				assert.ElementsMatchf(t, wantStatement.AllowedResources, gotStatement.AllowedResources, "resources statement %d", i)
 				assert.ElementsMatchf(t, wantStatement.Conditions, gotStatement.Conditions, "condition statement %d", i)
 				assert.ElementsMatchf(t, wantStatement.AllowedPrincipals, gotStatement.AllowedPrincipals, "principal statement %d", i)
 			}

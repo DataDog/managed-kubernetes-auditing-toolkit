@@ -10,6 +10,7 @@ type rawStatement struct {
 	Effect    string                            `json:"Effect"`
 	Action    interface{}                       `json:"Action"`
 	Principal interface{}                       `json:"Principal"`
+	Resource  interface{}                       `json:"Resource"`
 	Condition map[string]map[string]interface{} `json:"Condition"`
 }
 
@@ -17,12 +18,12 @@ type rawPolicy struct {
 	Statement []rawStatement `json:"Statement"`
 }
 
-func ParseRoleTrustPolicy(policy string) (*Policy, error) {
+func ParsePolicyDocument(policy string) (*Policy, error) {
 	var rawPolicy rawPolicy
 	resultPolicy := Policy{}
 	err := json.Unmarshal([]byte(policy), &rawPolicy)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse role trust policy from JSON: %v", err)
+		return nil, fmt.Errorf("unable to parse IAM policy from JSON: %v", err)
 	}
 	for _, rawStatement := range rawPolicy.Statement {
 		statement, err := parsePolicyStatement(&rawStatement)
@@ -50,11 +51,21 @@ func parsePolicyStatement(rawStatement *rawStatement) (*PolicyStatement, error) 
 	}
 	statement.AllowedActions = actions
 
-	principals, err := parsePrincipals(rawStatement.Principal)
-	if err != nil {
-		return nil, err
+	if rawStatement.Principal != nil {
+		principals, err := parsePrincipals(rawStatement.Principal)
+		if err != nil {
+			return nil, err
+		}
+		statement.AllowedPrincipals = principals
 	}
-	statement.AllowedPrincipals = principals
+
+	if rawStatement.Resource != nil {
+		resources, err := ensureStringArray(rawStatement.Resource)
+		if err != nil {
+			return nil, err
+		}
+		statement.AllowedResources = resources
+	}
 
 	conditions, err := parseConditions(rawStatement.Condition)
 	if err != nil {

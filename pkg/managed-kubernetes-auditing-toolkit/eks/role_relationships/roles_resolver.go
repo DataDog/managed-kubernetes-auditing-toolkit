@@ -31,13 +31,16 @@ type K8sPod struct {
 }
 
 type IAMRole struct {
-	Arn          string
-	TrustPolicy  string
-	IsPrivileged bool
+	Arn             string
+	Name            string
+	TrustPolicy     string
+	EffectivePolicy *iam_evaluation.Policy
+	IsPrivileged    bool
 }
 
 type EKSCluster struct {
 	AwsClient *aws.Config
+	IamClient *iam.Client
 	K8sClient *kubernetes.Clientset
 
 	Name                       string
@@ -82,9 +85,15 @@ func (m *EKSCluster) AnalyzeRoleRelationships() error {
 	if err != nil {
 		return err
 	}
-	for _, role := range roles {
+
+	// Roles that have at least one pod that can assume them
+	// We'll only analyze the privileges of these roles
+	rolesToAnalyze := []*IAMRole{}
+	roleArnsToAnalyze := map[string]bool{}
+
+	for i, role := range roles {
 		// Parse the role trust policy
-		trustPolicy, err := iam_evaluation.ParseRoleTrustPolicy(role.TrustPolicy)
+		trustPolicy, err := iam_evaluation.ParsePolicyDocument(role.TrustPolicy)
 		if err != nil {
 			log.Println("[WARNING] Could not parse the trust policy of " + role.Arn + ", ignoring. Error: " + err.Error())
 			continue
@@ -107,8 +116,27 @@ func (m *EKSCluster) AnalyzeRoleRelationships() error {
 
 				if *trustPolicy.Authorize(&authzContext) == iam_evaluation.AuthorizationResultAllow {
 					serviceAccount.AssumableRoles = append(serviceAccount.AssumableRoles, role)
+
+					// This role can be assumed by at least one service account
+					// Make sure we analyze its privileges later on
+					if _, ok := roleArnsToAnalyze[role.Arn]; !ok {
+						rolesToAnalyze = append(rolesToAnalyze, &roles[i])
+						roleArnsToAnalyze[role.Arn] = true
+					}
 				}
 			}
+		}
+	}
+
+	// Analyze the privileges of identified roles
+	for _, role := range rolesToAnalyze {
+		role.EffectivePolicy, err = m.getRoleEffectivePolicy(role.Name)
+		if err != nil {
+			log.Printf("[WARNING] Unable to analyze privileges of role %s - will skip it. Error: %v", role.Arn, err)
+		}
+		role.IsPrivileged = m.isRolePrivileged(role)
+		if role.IsPrivileged {
+			log.Println("WOW! Role " + role.Arn + " is privileged")
 		}
 	}
 
@@ -117,9 +145,10 @@ func (m *EKSCluster) AnalyzeRoleRelationships() error {
 
 func (m *EKSCluster) getIAMRoles() ([]IAMRole, error) {
 	log.Println("Listing roles in the AWS account")
-	paginator := iam.NewListRolesPaginator(iam.NewFromConfig(*m.AwsClient, func(options *iam.Options) {
+	m.IamClient = iam.NewFromConfig(*m.AwsClient, func(options *iam.Options) {
 		options.Region = "us-east-1"
-	}), &iam.ListRolesInput{})
+	})
+	paginator := iam.NewListRolesPaginator(m.IamClient, &iam.ListRolesInput{})
 	assumableRoles := []IAMRole{}
 	for paginator.HasMorePages() {
 		roles, err := paginator.NextPage(context.Background())
@@ -131,14 +160,125 @@ func (m *EKSCluster) getIAMRoles() ([]IAMRole, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			role := IAMRole{
 				Arn:         *role.Arn,
+				Name:        *role.RoleName,
 				TrustPolicy: trustPolicy,
 			}
 			assumableRoles = append(assumableRoles, role)
 		}
 	}
 	return assumableRoles, nil
+}
+
+func (m *EKSCluster) getRoleEffectivePolicy(roleName string) (*iam_evaluation.Policy, error) {
+	resultingPolicy := iam_evaluation.NewPolicy()
+	effectiveInlinePolicy, err := m.getRoleEffectiveInlinePolicy(roleName)
+	if err != nil {
+		return nil, err
+	}
+
+	effectiveAttachedPolicy, err := m.getRoleEffectiveAttachedPolicy(roleName)
+	if err != nil {
+		return nil, err
+	}
+
+	resultingPolicy = resultingPolicy.Merge(effectiveInlinePolicy)
+	resultingPolicy = resultingPolicy.Merge(effectiveAttachedPolicy)
+
+	log.Printf("For role %s, found %d statements in the effective policy", roleName, len(resultingPolicy.Statements))
+	return resultingPolicy, nil
+}
+
+func (m *EKSCluster) getRoleEffectiveInlinePolicy(roleName string) (*iam_evaluation.Policy, error) {
+	paginator := iam.NewListRolePoliciesPaginator(m.IamClient, &iam.ListRolePoliciesInput{
+		RoleName: &roleName,
+	})
+
+	resultingPolicy := iam_evaluation.NewPolicy()
+
+	for paginator.HasMorePages() {
+		result, err := paginator.NextPage(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("unable to list role policies: %v", err)
+		}
+		for i := range result.PolicyNames {
+			policyName := result.PolicyNames[i]
+			policyResult, err := m.IamClient.GetRolePolicy(context.Background(), &iam.GetRolePolicyInput{
+				PolicyName: &policyName,
+				RoleName:   &roleName,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("unable to get role inline policy %s: %v", policyName, err)
+			}
+
+			policyJson, err := url.PathUnescape(*policyResult.PolicyDocument)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode IAM policy of role inline policy %s: %v", policyName, err)
+			}
+
+			policy, err := iam_evaluation.ParsePolicyDocument(policyJson)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse role inline policy %s: %v", policyName, err)
+			}
+			resultingPolicy = resultingPolicy.Merge(policy)
+		}
+	}
+
+	return resultingPolicy, nil
+}
+
+func (m *EKSCluster) getRoleEffectiveAttachedPolicy(roleName string) (*iam_evaluation.Policy, error) {
+	paginator := iam.NewListAttachedRolePoliciesPaginator(m.IamClient, &iam.ListAttachedRolePoliciesInput{
+		RoleName: &roleName,
+	})
+
+	resultingPolicy := iam_evaluation.NewPolicy()
+
+	for paginator.HasMorePages() {
+		result, err := paginator.NextPage(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("unable to list role policies: %v", err)
+		}
+		for i := range result.AttachedPolicies {
+			policyAttachment := result.AttachedPolicies[i]
+			policyDocument, err := m.getIamPolicyDocument(*policyAttachment.PolicyArn)
+			policy, err := iam_evaluation.ParsePolicyDocument(policyDocument)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse role attached policy %s: %v", *policyAttachment.PolicyName, err)
+			}
+			resultingPolicy = resultingPolicy.Merge(policy)
+		}
+	}
+
+	return resultingPolicy, nil
+}
+
+func (m *EKSCluster) getIamPolicyDocument(policyArn string) (string, error) {
+	// Need to list policy versions first, then only get the latest version..
+	policyVersionResult, err := m.IamClient.GetPolicy(context.Background(), &iam.GetPolicyInput{
+		PolicyArn: &policyArn,
+	})
+	if err != nil {
+		return "", fmt.Errorf("unable to list versions of role attached policy %s: %v", policyArn, err)
+	}
+
+	latestVersion := policyVersionResult.Policy.DefaultVersionId
+	policyResult, err := m.IamClient.GetPolicyVersion(context.Background(), &iam.GetPolicyVersionInput{
+		PolicyArn: &policyArn,
+		VersionId: latestVersion,
+	})
+	if err != nil {
+		return "", fmt.Errorf("unable to get role attached policy %s: %v", policyArn, err)
+	}
+
+	policyJson, err := url.PathUnescape(*policyResult.PolicyVersion.Document)
+	if err != nil {
+		return "", fmt.Errorf("unable to decode IAM policy of role attached policy %s: %v", policyArn, err)
+	}
+
+	return policyJson, nil
 }
 
 func (m *EKSCluster) getServiceAccountsByNamespace() (map[string][]*K8sServiceAccount, error) {
@@ -185,6 +325,32 @@ func (m *EKSCluster) getPodsByNamespace() (map[string][]*K8sPod, error) {
 	}
 
 	return podsByNamespace, nil
+}
+
+func (m *EKSCluster) isRolePrivileged(role *IAMRole) bool {
+	if role.EffectivePolicy == nil || len(role.EffectivePolicy.Statements) == 0 {
+		return false
+	}
+	if *role.EffectivePolicy.Authorize(&iam_evaluation.AuthorizationContext{Action: "icannot:exist", Resource: "me:neither"}) == iam_evaluation.AuthorizationResultAllow {
+		return true
+	}
+	privilegedActions := [][]string{
+		{"secretsmanager:listsecrets", "secretsmanager:getsecretvalue"},
+	}
+	for _, actions := range privilegedActions {
+		allMatch := true
+		for _, action := range actions {
+			if *role.EffectivePolicy.Authorize(&iam_evaluation.AuthorizationContext{Action: action, Resource: "nope"}) == iam_evaluation.AuthorizationResultDeny {
+				allMatch = false
+				break
+			}
+		}
+		if allMatch {
+			return true
+		}
+	}
+
+	return false
 }
 
 func hasProjectedServiceAccountToken(pod *corev1.Pod) bool {

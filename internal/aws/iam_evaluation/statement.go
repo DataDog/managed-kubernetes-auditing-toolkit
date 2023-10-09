@@ -24,6 +24,7 @@ type Principal struct {
 type PolicyStatement struct {
 	Effect            AuthorizationDecision
 	AllowedPrincipals []*Principal
+	AllowedResources  []string
 	AllowedActions    []string
 	Conditions        []*Condition
 }
@@ -43,7 +44,7 @@ func (m *PolicyStatement) Authorize(context *AuthorizationContext) *Authorizatio
 
 func (m *PolicyStatement) statementMatches(context *AuthorizationContext) bool {
 	return m.actionMatches(context.Action) &&
-		m.principalMatches(context.Principal) &&
+		(m.principalMatches(context.Principal) || m.resourceMatches(context.Resource)) &&
 		m.conditionsMatch(context)
 }
 
@@ -85,6 +86,16 @@ func (m *PolicyStatement) principalMatches(principal *Principal) bool {
 		}
 
 		if match, err := filepath.Match(allowedPrincipal.ID, principal.ID); match && err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *PolicyStatement) resourceMatches(resource string) bool {
+	resource = strings.ToLower(resource)
+	for _, allowedAction := range m.AllowedResources {
+		if match, err := filepath.Match(strings.ToLower(allowedAction), resource); match && err == nil {
 			return true
 		}
 	}

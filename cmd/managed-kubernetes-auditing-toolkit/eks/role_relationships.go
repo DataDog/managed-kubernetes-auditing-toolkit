@@ -181,11 +181,16 @@ func getDotOutput(resolver *role_relationships.EKSCluster) (string, error) {
 			for _, role := range pod.ServiceAccount.AssumableRoles {
 				parsedArn, _ := arn.Parse(role.Arn)
 				roleLabel := fmt.Sprintf(`"IAM role %s"`, strings.Split(parsedArn.Resource, "/")[1])
+				fillColor := "#BFEFFF"
+				if role.IsPrivileged {
+					// light red
+					fillColor = `"#FFBFBF"`
+				}
 				graphViz.AddNode("G", roleLabel, map[string]string{
 					"fontname":  "Helvetica",
 					"shape":     "box",
 					"style":     "filled",
-					"fillcolor": `"#BFEFFF"`,
+					"fillcolor": fillColor,
 					"fontsize":  "12",
 				})
 				graphViz.AddEdge(podLabel, roleLabel, true, map[string]string{
