@@ -11,6 +11,8 @@ Features:
 - 🔑 [Find hardcoded AWS credentials in K8s resources](#find-hardcoded-aws-credentials-in-k8s-resources)
 - 💀 [Test if pods can access the AWS Instance Metadata Service (IMDS)](#test-if-pods-can-access-the-aws-instance-metadata-service-imds)
 
+_Note: At the time, MKAT doesn't support EKS Pod Identity, [released](https://aws.amazon.com/blogs/aws/amazon-eks-pod-identity-simplifies-iam-permissions-for-applications-on-amazon-eks-clusters/) on November 26th 2023. Watch [#13] for updates._
+
 ## Installation
 
 ```bash
