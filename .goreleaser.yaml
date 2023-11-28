@@ -15,9 +15,16 @@ builds:
     binary: mkat
 brews:
   - name: managed-kubernetes-auditing-toolkit
-    tap:
+    repository:
       owner: datadog
       name: managed-kubernetes-auditing-toolkit
+      branch: "homebrew-update-{{ .Version	}}"
+      pull_request:
+        enabled: true
+        base:
+          owner: datadog
+          name: managed-kubernetes-auditing-toolkit
+          branch: main
     folder: Formula
     url_template: "https://github.com/DataDog/managed-kubernetes-auditing-toolkit/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     license: Apache-2.0
