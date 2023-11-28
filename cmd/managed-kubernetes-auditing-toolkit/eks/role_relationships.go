@@ -119,7 +119,7 @@ func getTextOutput(resolver *role_relationships.EKSCluster) (string, error) {
 		{Number: 2, AutoMerge: true, VAlign: text.VAlignMiddle},
 		{Number: 3, AutoMerge: true, VAlign: text.VAlignMiddle},
 	})
-	t.AppendHeader(table.Row{"Namespace", "Service Account", "Pod", "Assumable Role ARN", "Mechanism"})
+	t.AppendHeader(table.Row{"Namespace", "Service Account", "Pod", "Assumable Role", "Mechanism"})
 	var found = false
 	for namespace, pods := range resolver.PodsByNamespace {
 		for _, pod := range pods {
