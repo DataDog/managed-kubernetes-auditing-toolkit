@@ -54,7 +54,6 @@ $ mkat eks find-role-relationships
 2023/11/28 21:06:03 Analyzing IAM Roles For Service Accounts (IRSA) configuration
 2023/11/28 21:06:03 Analyzing Pod Identity configuration of your cluster
 2023/11/28 21:06:04 Analyzing namespace microservices which has 1 Pod Identity associations
-2023/11/28 21:06:04 Adding assumable role arn:aws:iam::677301038893:role/webserver-role to pod rate-limiter-1 in namespace microservices
 +------------------+---------------------------+-----------------------------------+-----------------------------+--------------------------------+
 | NAMESPACE        | SERVICE ACCOUNT           | POD                               | ASSUMABLE ROLE              | MECHANISM                      |
 +------------------+---------------------------+-----------------------------------+-----------------------------+--------------------------------+
