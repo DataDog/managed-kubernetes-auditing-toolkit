@@ -7,11 +7,9 @@ analysis](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/actions
 MKAT is an all-in-one auditing toolkit for identifying common security issues within managed Kubernetes environments. It is focused on Amazon EKS at the moment, and will be extended to other managed Kubernetes environments in the future.
 
 Features:
-- 🔎 [Identify trust relationships between K8s service accounts and AWS IAM roles](#identify-trust-relationships-between-k8s-service-accounts-and-aws-iam-roles)
-- 🔑 [Find hardcoded AWS credentials in K8s resources](#find-hardcoded-aws-credentials-in-k8s-resources)
-- 💀 [Test if pods can access the AWS Instance Metadata Service (IMDS)](#test-if-pods-can-access-the-aws-instance-metadata-service-imds)
-
-_Note: At the time, MKAT doesn't support EKS Pod Identity, [released](https://aws.amazon.com/blogs/aws/amazon-eks-pod-identity-simplifies-iam-permissions-for-applications-on-amazon-eks-clusters/) on November 26th 2023. Watch [#13] for updates._
+- 🔎 [Identify trust relationships between K8s service accounts and AWS IAM roles](#identify-trust-relationships-between-k8s-service-accounts-and-aws-iam-roles) - supports both IAM Roles for Service Accounts (IRSA), and [Pod Identity](https://aws.amazon.com/blogs/aws/amazon-eks-pod-identity-simplifies-iam-permissions-for-applications-on-amazon-eks-clusters/), released on November 26 2023.
+- 🔑 [Find hardcoded AWS credentials in K8s resources](#find-hardcoded-aws-credentials-in-k8s-resources).
+- 💀 [Test if pods can access the AWS Instance Metadata Service (IMDS)](#test-if-pods-can-access-the-aws-instance-metadata-service-imds).
 
 ## Installation
 
@@ -33,35 +31,44 @@ aws eks update-kubeconfig --name <cluster-name>
 
 ### Identify trust relationships between K8s service accounts and AWS IAM roles
 
-[IAM Roles for Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) is 
-a popular mechanism to allow pods to assume AWS IAM roles, by exchanging a Kubernetes service account token for AWS credentials through the AWS STS API (`AssumeRoleWithWebIdentity`).
+MKAT can identify the trust relationships between K8s service accounts and AWS IAM roles, and display them in a table or as a graph. It currently supports:
 
-MKAT can identify the trust relationships between K8s service accounts and AWS IAM roles, and display them in a table or as a graph. 
-It works by looking both at the trust policy of the IAM roles, and at the service accounts that are associated with the pods running in the cluster.
+- **[IAM Roles for Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)**, a popular mechanism to allow pods to assume AWS IAM roles by exchanging a Kubernetes service account token for AWS credentials through the AWS STS API (`AssumeRoleWithWebIdentity`).
+
+- **[EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)**, another newer mechanism that works in a similar way, but is easier to set up.
+
+MKAT works by analyzing both the IAM roles in the AWS account, and the K8s service accounts in the cluster, and then matching them together based on these two mechanisms.
 
 ```bash
 $ mkat eks find-role-relationships
-              _              _
-  _ __ ___   | | __   __ _  | |_
+ _ __ ___   | | __   __ _  | |_
  | '_ ` _ \  | |/ /  / _` | | __|
  | | | | | | |   <  | (_| | | |_
  |_| |_| |_| |_|\_\  \__,_|  \__|
 
-2023/04/12 00:25:15 Connected to EKS cluster mkat-cluster
-2023/04/12 00:25:15 Retrieving cluster OIDC issuer
-2023/04/12 00:25:16 Listing roles in the AWS account
-2023/04/12 00:25:18 Listing K8s service accounts in all namespaces
-2023/04/12 00:25:19 Analyzing the trust policy of 5 IAM roles that have the cluster's OIDC provider in their trust policy
-+-----------+----------------------+-------------------+-------------------------------------------------------+
-| NAMESPACE | SERVICE ACCOUNT      | POD               | ASSUMABLE ROLE ARN                                    |
-+-----------+----------------------+-------------------+-------------------------------------------------------+
-| default   | apigw-sa             | apigw             | arn:aws:iam::677301038893:role/apigw-role             |
-|           |                      |                   | arn:aws:iam::677301038893:role/s3-reader              |
-|           | inventory-service-sa | inventory-service | arn:aws:iam::677301038893:role/inventory-service-role |
-|           |                      |                   | arn:aws:iam::677301038893:role/s3-reader              |
-|           | kafka-proxy-sa       | kafka-proxy       | arn:aws:iam::677301038893:role/kafka-proxy-role       |
-|           | rate-limiter-sa      | rate-limiter      | arn:aws:iam::677301038893:role/rate-limiter-role      |
-+-----------+----------------------+-------------------+-------------------------------------------------------+
+2023/11/28 21:05:59 Connected to EKS cluster mkat-cluster
+2023/11/28 21:05:59 Retrieving cluster information
+2023/11/28 21:06:00 Listing K8s service accounts in all namespaces
+2023/11/28 21:06:02 Listing roles in the AWS account
+2023/11/28 21:06:03 Found 286 IAM roles in the AWS account
+2023/11/28 21:06:03 Analyzing IAM Roles For Service Accounts (IRSA) configuration
+2023/11/28 21:06:03 Analyzing Pod Identity configuration of your cluster
+2023/11/28 21:06:04 Analyzing namespace microservices which has 1 Pod Identity associations
++------------------+---------------------------+-----------------------------------+-----------------------------+--------------------------------+
+| NAMESPACE        | SERVICE ACCOUNT           | POD                               | ASSUMABLE ROLE              | MECHANISM                      |
++------------------+---------------------------+-----------------------------------+-----------------------------+--------------------------------+
+| microservices    | inventory-service-sa      | inventory-service                 | inventory-service-role      | IAM Roles for Service Accounts |
+|                  |                           |                                   | s3-backup-role              | IAM Roles for Service Accounts |
+|                  | rate-limiter-sa           | rate-limiter-1                    | rate-limiter-role           | IAM Roles for Service Accounts |
+|                  |                           |                                   | webserver-role              | Pod Identity                   |
+|                  |                           | rate-limiter-2                    | rate-limiter-role           | IAM Roles for Service Accounts |
+|                  |                           |                                   | webserver-role              | Pod Identity                   |
++------------------+---------------------------+-----------------------------------+-----------------------------+--------------------------------+
+| default          | vulnerable-application-sa | vulnerable-application            | vulnerable-application-role | IAM Roles for Service Accounts |
+|                  | webserver-sa              | webserver                         | webserver-role              | IAM Roles for Service Accounts |
++------------------+---------------------------+-----------------------------------+-----------------------------+--------------------------------+
+| external-secrets | external-secrets-sa       | external-secrets-66cfb84c9b-kldt9 | ExternalSecretsRole         | IAM Roles for Service Accounts |
++------------------+---------------------------+-----------------------------------+-----------------------------+--------------------------------+
 ```
 
 It can also generate a `dot` output for graphic visualization:

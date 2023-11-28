@@ -8,19 +8,37 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/datadog/managed-kubernetes-auditing-toolkit/internal/aws/iam_evaluation"
+	"github.com/hashicorp/go-version"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/url"
+	"strconv"
 	"strings"
 )
+
+type AssumeIAMRoleReason string
+
+const (
+	AssumeIAMRoleReasonIRSA        = "IAM Roles for Service Accounts"
+	AssumeIAMRoleReasonPodIdentity = "Pod Identity"
+)
+
+// https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html#pod-id-cluster-versions
+const PodIdentityMinSupportedK8sVersion = "1.24"
+
+// AssumableIAMRole records that an IAM role can be assumed through a specific mechanism
+type AssumableIAMRole struct {
+	IAMRole *IAMRole
+	Reason  AssumeIAMRoleReason
+}
 
 type K8sServiceAccount struct {
 	Name           string
 	Namespace      string
 	Annotations    map[string]string
-	AssumableRoles []IAMRole
+	AssumableRoles []*AssumableIAMRole
 }
 
 type K8sPod struct {
@@ -36,58 +54,164 @@ type IAMRole struct {
 	IsPrivileged bool
 }
 
+type PodIdentityAssociation struct {
+	ID                 string
+	Namespace          string
+	ServiceAccountName string
+	RoleArn            string
+}
+
 type EKSCluster struct {
 	AwsClient *aws.Config
 	K8sClient *kubernetes.Clientset
 
 	Name                       string
+	KubernetesVersion          string // e.g. "1.24"
 	AccountID                  string
 	IssuerURL                  string
 	ServiceAccountsByNamespace map[string][]*K8sServiceAccount
 	PodsByNamespace            map[string][]*K8sPod
+	IAMRoles                   []*IAMRole
 }
 
 func (m *EKSCluster) AnalyzeRoleRelationships() error {
-	log.Println("Retrieving cluster OIDC issuer")
-	clusterInfo, err := eks.NewFromConfig(*m.AwsClient).DescribeCluster(context.Background(), &eks.DescribeClusterInput{
-		Name: &m.Name,
-	})
-	if err != nil {
-		return fmt.Errorf("unable to retrieve cluster OIDC issuer: %v", err)
+	// Start by retrieving the cluster information
+	if err := m.retrieveClusterInformation(); err != nil {
+		return fmt.Errorf("unable to retrieve EKS cluster information: %v", err)
 	}
-	if clusterInfo.Cluster.Identity == nil || clusterInfo.Cluster.Identity.Oidc == nil {
-		// The cluster has no OIDC provider, so there are no roles to resolve
-		return nil
-	}
-	parsedClusterArn, _ := arn.Parse(*clusterInfo.Cluster.Arn)
-	m.AccountID = parsedClusterArn.AccountID
-	m.IssuerURL = strings.Replace(*clusterInfo.Cluster.Identity.Oidc.Issuer, "https://", "", 1)
 
-	// Find all service accounts
-	serviceAccountsByNamespace, err := m.getServiceAccountsByNamespace()
+	// Retrieve all service accounts
+	serviceAccountsByNamespace, err := m.retrieveServiceAccountsByNamespace()
 	if err != nil {
 		return fmt.Errorf("unable to retrieve service accounts: %v", err)
 	}
 	m.ServiceAccountsByNamespace = serviceAccountsByNamespace
 
-	// Find all pods and link them with the service accounts
+	// Then, find all pods and link them with the service accounts
 	podsByNamespace, err := m.getPodsByNamespace()
 	if err != nil {
 		return fmt.Errorf("unable to retrieve pods: %v", err)
 	}
 	m.PodsByNamespace = podsByNamespace
 
-	roles, err := m.getIAMRoles()
-	log.Printf("Analyzing the trust policy of %d IAM roles", len(roles))
+	// Then, retrieve all IAM roles in the account
+	iamRoles, err := m.retrieveIAMRoles()
+	log.Printf("Found %d IAM roles in the AWS account", len(iamRoles))
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to list IAM roles: %v", err)
 	}
-	for _, role := range roles {
+	m.IAMRoles = iamRoles
+
+	// Finally, launch the analysis for both IRSA and Pod Identity
+	if err := m.AnalyzeRoleRelationshipsForIRSA(); err != nil {
+		return fmt.Errorf("unable to analyze IRSA configuration in your cluster and account: %v", err)
+	}
+
+	if err := m.AnalyzeRoleRelationshipsForPodIdentity(); err != nil {
+		return fmt.Errorf("unable to analyze Pod Identity configuration in your cluster and account: %v", err)
+	}
+
+	return nil
+}
+
+func (m *EKSCluster) AnalyzeRoleRelationshipsForPodIdentity() error {
+	log.Println("Analyzing Pod Identity configuration of your cluster")
+	eksClient := eks.NewFromConfig(*m.AwsClient)
+
+	if !m.supportsPodIdentity() {
+		log.Println("Your cluster runs a Kubernetes version that does not support Pod Identity - skipping")
+		log.Println("Your K8s version is " + m.KubernetesVersion + ", and Pod Identity is supported starting from " + PodIdentityMinSupportedK8sVersion)
+		return nil
+	}
+
+	// Step 1: Retrieve all pod associations in the cluster, and keep a map by podAssociationNamespace
+	paginator := eks.NewListPodIdentityAssociationsPaginator(eksClient, &eks.ListPodIdentityAssociationsInput{
+		ClusterName: &m.Name,
+	})
+	namespaceToPodIdentityAssociations := map[string][]*PodIdentityAssociation{}
+	for paginator.HasMorePages() {
+		podIdentityAssociations, err := paginator.NextPage(context.Background())
+		if err != nil {
+			return fmt.Errorf("unable to retrieve pod identity associations: %v", err)
+		}
+		for _, podIdentityAssociation := range podIdentityAssociations.Associations {
+			namespace := *podIdentityAssociation.Namespace
+			if _, ok := namespaceToPodIdentityAssociations[namespace]; !ok {
+				namespaceToPodIdentityAssociations[namespace] = []*PodIdentityAssociation{}
+			}
+
+			//TODO: This is duplicate because AWS across calls update this value... we need to define our own type
+			association := podIdentityAssociation
+			namespaceToPodIdentityAssociations[namespace] = append(namespaceToPodIdentityAssociations[namespace], &PodIdentityAssociation{
+				ID:                 *association.AssociationId,
+				Namespace:          *association.Namespace,
+				ServiceAccountName: *association.ServiceAccount,
+				RoleArn:            "", // No role ARN yet at this point, as we need a call to DescribePodIdentityAssociation
+			})
+		}
+	}
+
+	// Step 2: Map assumable roles to pods
+	for podAssociationNamespace := range namespaceToPodIdentityAssociations {
+		log.Println("Analyzing namespace " + podAssociationNamespace + " which has " + strconv.Itoa(len(namespaceToPodIdentityAssociations[podAssociationNamespace])) + " Pod Identity associations")
+		for _, podAssociation := range namespaceToPodIdentityAssociations[podAssociationNamespace] {
+
+			// Retrieve the role attached to the pod identity association
+			podAssociationDetails, err := eksClient.DescribePodIdentityAssociation(context.Background(), &eks.DescribePodIdentityAssociationInput{
+				AssociationId: &podAssociation.ID,
+				ClusterName:   &m.Name,
+			})
+			if err != nil {
+				return fmt.Errorf("unable to describe pod identity association %s: %v", podAssociation.ID, err)
+			}
+			pods, ok := m.PodsByNamespace[podAssociationNamespace]
+			if !ok {
+				// no pods in podAssociationNamespace, go to the next one
+				continue
+			}
+
+			// cache to avoid counting multiple IAM roles for a given SA
+			serviceAccountsHandledForPodAssociation := map[string]bool{}
+
+			// All pods in this podAssociationNamespace with this service account can assume the role
+			for _, pod := range pods {
+				if pod.ServiceAccount.Name == podAssociation.ServiceAccountName {
+					assumableIamRole := AssumableIAMRole{
+						IAMRole: &IAMRole{Arn: *podAssociationDetails.Association.RoleArn},
+						Reason:  AssumeIAMRoleReasonPodIdentity,
+					}
+
+					// Did we already find this role for this SA? (case where multiple pods have the same SA)
+					if _, ok := serviceAccountsHandledForPodAssociation[pod.ServiceAccount.Name]; !ok {
+						pod.ServiceAccount.AssumableRoles = append(pod.ServiceAccount.AssumableRoles, &assumableIamRole)
+						serviceAccountsHandledForPodAssociation[pod.ServiceAccount.Name] = true
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (m *EKSCluster) AnalyzeRoleRelationshipsForIRSA() error {
+	log.Println("Analyzing IAM Roles For Service Accounts (IRSA) configuration")
+	if m.IssuerURL == "" {
+		log.Println("Your cluster has no OIDC provider, skipping IRSA analysis")
+		return nil
+	}
+
+	for _, role := range m.IAMRoles {
 		// Parse the role trust policy
 		trustPolicy, err := iam_evaluation.ParseRoleTrustPolicy(role.TrustPolicy)
 		if err != nil {
 			log.Println("[WARNING] Could not parse the trust policy of " + role.Arn + ", ignoring. Error: " + err.Error())
 			continue
+		}
+
+		assumableIamRole := AssumableIAMRole{
+			IAMRole: &IAMRole{Arn: role.Arn},
+			Reason:  AssumeIAMRoleReasonIRSA,
 		}
 
 		// Iterate over all service accounts in the cluster and figure out which ones can assume the role
@@ -106,7 +230,7 @@ func (m *EKSCluster) AnalyzeRoleRelationships() error {
 				}
 
 				if *trustPolicy.Authorize(&authzContext) == iam_evaluation.AuthorizationResultAllow {
-					serviceAccount.AssumableRoles = append(serviceAccount.AssumableRoles, role)
+					serviceAccount.AssumableRoles = append(serviceAccount.AssumableRoles, &assumableIamRole)
 				}
 			}
 		}
@@ -115,12 +239,33 @@ func (m *EKSCluster) AnalyzeRoleRelationships() error {
 	return nil
 }
 
-func (m *EKSCluster) getIAMRoles() ([]IAMRole, error) {
+func (m *EKSCluster) retrieveClusterInformation() error {
+	log.Println("Retrieving cluster information")
+	clusterInfo, err := eks.NewFromConfig(*m.AwsClient).DescribeCluster(context.Background(), &eks.DescribeClusterInput{
+		Name: &m.Name,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve cluster OIDC issuer: %v", err)
+	}
+	if clusterInfo.Cluster.Identity == nil || clusterInfo.Cluster.Identity.Oidc == nil {
+		// The cluster has no OIDC provider
+		m.IssuerURL = ""
+		return nil
+	}
+
+	parsedClusterArn, _ := arn.Parse(*clusterInfo.Cluster.Arn)
+	m.AccountID = parsedClusterArn.AccountID
+	m.IssuerURL = strings.Replace(*clusterInfo.Cluster.Identity.Oidc.Issuer, "https://", "", 1)
+	m.KubernetesVersion = *clusterInfo.Cluster.Version
+	return nil
+}
+
+func (m *EKSCluster) retrieveIAMRoles() ([]*IAMRole, error) {
 	log.Println("Listing roles in the AWS account")
 	paginator := iam.NewListRolesPaginator(iam.NewFromConfig(*m.AwsClient, func(options *iam.Options) {
 		options.Region = "us-east-1"
 	}), &iam.ListRolesInput{})
-	assumableRoles := []IAMRole{}
+	allIAMRoles := []*IAMRole{}
 	for paginator.HasMorePages() {
 		roles, err := paginator.NextPage(context.Background())
 		if err != nil {
@@ -135,13 +280,13 @@ func (m *EKSCluster) getIAMRoles() ([]IAMRole, error) {
 				Arn:         *role.Arn,
 				TrustPolicy: trustPolicy,
 			}
-			assumableRoles = append(assumableRoles, role)
+			allIAMRoles = append(allIAMRoles, &role)
 		}
 	}
-	return assumableRoles, nil
+	return allIAMRoles, nil
 }
 
-func (m *EKSCluster) getServiceAccountsByNamespace() (map[string][]*K8sServiceAccount, error) {
+func (m *EKSCluster) retrieveServiceAccountsByNamespace() (map[string][]*K8sServiceAccount, error) {
 	log.Println("Listing K8s service accounts in all namespaces")
 	serviceAccountsByNamespace := make(map[string][]*K8sServiceAccount)
 	serviceAccounts, err := m.K8sClient.CoreV1().ServiceAccounts("").List(context.Background(), v1.ListOptions{})
@@ -154,7 +299,7 @@ func (m *EKSCluster) getServiceAccountsByNamespace() (map[string][]*K8sServiceAc
 			Name:           serviceAccount.Name,
 			Namespace:      serviceAccount.Namespace,
 			Annotations:    serviceAccount.Annotations,
-			AssumableRoles: []IAMRole{},
+			AssumableRoles: []*AssumableIAMRole{},
 		})
 	}
 	return serviceAccountsByNamespace, nil
@@ -185,6 +330,18 @@ func (m *EKSCluster) getPodsByNamespace() (map[string][]*K8sPod, error) {
 	}
 
 	return podsByNamespace, nil
+}
+
+func (m *EKSCluster) supportsPodIdentity() bool {
+	currentVersion, err := version.NewVersion(m.KubernetesVersion)
+	minimumVersion, err2 := version.NewVersion(PodIdentityMinSupportedK8sVersion)
+	if err != nil || err2 != nil {
+		log.Println("WARNING: Unable to parse cluster K8s version, assuming it's >= 1.24 and supports Pod Identity")
+		log.Println("Error: " + err.Error() + " " + err2.Error())
+		return true
+	}
+
+	return currentVersion.GreaterThanOrEqual(minimumVersion)
 }
 
 func hasProjectedServiceAccountToken(pod *corev1.Pod) bool {

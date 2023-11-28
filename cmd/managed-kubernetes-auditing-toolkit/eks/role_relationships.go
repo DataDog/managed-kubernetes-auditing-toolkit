@@ -22,6 +22,7 @@ import (
 var outputFormat string
 var outputFile string
 var eksClusterName string
+var showFullRoleArns bool
 
 // Output formats
 const (
@@ -63,7 +64,7 @@ func buildEksRoleRelationshipsCommand() *cobra.Command {
 	eksRoleRelationshipsCommand.Flags().StringVarP(&outputFormat, "output-format", "f", DefaultOutputFormat, "Output format. Supported formats: "+strings.Join(availableOutputFormats, ", "))
 	eksRoleRelationshipsCommand.Flags().StringVarP(&outputFile, "output-file", "o", "", "Output file. If not specified, output will be printed to stdout.")
 	eksRoleRelationshipsCommand.Flags().StringVarP(&eksClusterName, "eks-cluster-name", "", "", "When the EKS cluster name cannot be automatically detected from your KubeConfig, specify this argument to pass the EKS cluster name of your current kubectl context")
-
+	eksRoleRelationshipsCommand.Flags().BoolVarP(&showFullRoleArns, "show-full-role-arns", "", false, "Show full ARNs of roles instead of just the role name")
 	return eksRoleRelationshipsCommand
 }
 
@@ -118,7 +119,7 @@ func getTextOutput(resolver *role_relationships.EKSCluster) (string, error) {
 		{Number: 2, AutoMerge: true, VAlign: text.VAlignMiddle},
 		{Number: 3, AutoMerge: true, VAlign: text.VAlignMiddle},
 	})
-	t.AppendHeader(table.Row{"Namespace", "Service Account", "Pod", "Assumable Role ARN"})
+	t.AppendHeader(table.Row{"Namespace", "Service Account", "Pod", "Assumable Role", "Mechanism"})
 	var found = false
 	for namespace, pods := range resolver.PodsByNamespace {
 		for _, pod := range pods {
@@ -126,7 +127,7 @@ func getTextOutput(resolver *role_relationships.EKSCluster) (string, error) {
 				continue
 			}
 			for _, role := range pod.ServiceAccount.AssumableRoles {
-				t.AppendRow([]interface{}{namespace, pod.ServiceAccount.Name, pod.Name, role.Arn})
+				t.AppendRow([]interface{}{namespace, pod.ServiceAccount.Name, pod.Name, getRoleDisplayName(role.IAMRole), role.Reason})
 				found = true
 			}
 		}
@@ -146,6 +147,7 @@ type Vertex struct {
 func (v *Vertex) GetID() int {
 	return v.ID
 }
+
 func getDotOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	graphAst, _ := gographviz.ParseString(`digraph G { }`)
 	graphViz := gographviz.NewGraph()
@@ -179,8 +181,7 @@ func getDotOutput(resolver *role_relationships.EKSCluster) (string, error) {
 				"fontsize":  "12",
 			})
 			for _, role := range pod.ServiceAccount.AssumableRoles {
-				parsedArn, _ := arn.Parse(role.Arn)
-				roleLabel := fmt.Sprintf(`"IAM role %s"`, strings.Split(parsedArn.Resource, "/")[1])
+				roleLabel := fmt.Sprintf(`"IAM role %s"`, getRoleName(role.IAMRole))
 				graphViz.AddNode("G", roleLabel, map[string]string{
 					"fontname":  "Helvetica",
 					"shape":     "box",
@@ -204,7 +205,7 @@ func getDotOutput(resolver *role_relationships.EKSCluster) (string, error) {
 
 func getCsvOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	sb := new(strings.Builder)
-	sb.WriteString("namespace,pod,service_account,role_arn")
+	sb.WriteString("namespace,pod,service_account,role_arn,reason")
 	for namespace, pods := range resolver.PodsByNamespace {
 		for _, pod := range pods {
 			if pod.ServiceAccount == nil || len(pod.ServiceAccount.AssumableRoles) == 0 {
@@ -212,11 +213,12 @@ func getCsvOutput(resolver *role_relationships.EKSCluster) (string, error) {
 			}
 			for _, role := range pod.ServiceAccount.AssumableRoles {
 				sb.WriteString(fmt.Sprintf(
-					"%s,%s,%s,%s",
+					"%s,%s,%s,%s,%s",
 					namespace,
 					pod.Name,
 					pod.ServiceAccount.Name,
-					role.Arn,
+					getRoleDisplayName(role.IAMRole),
+					role.Reason,
 				))
 				sb.WriteRune('\n')
 			}
@@ -224,4 +226,16 @@ func getCsvOutput(resolver *role_relationships.EKSCluster) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+func getRoleDisplayName(role *role_relationships.IAMRole) string {
+	if showFullRoleArns {
+		return role.Arn
+	}
+	return getRoleName(role)
+}
+
+func getRoleName(role *role_relationships.IAMRole) string {
+	parsedArn, _ := arn.Parse(role.Arn)
+	return strings.Split(parsedArn.Resource, "/")[1]
 }
