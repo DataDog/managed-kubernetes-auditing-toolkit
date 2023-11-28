@@ -164,20 +164,29 @@ func (m *EKSCluster) AnalyzeRoleRelationshipsForPodIdentity() error {
 			if err != nil {
 				return fmt.Errorf("unable to describe pod identity association %s: %v", podAssociation.ID, err)
 			}
-			assumableIamRole := AssumableIAMRole{
-				IAMRole: &IAMRole{Arn: *podAssociationDetails.Association.RoleArn},
-				Reason:  AssumeIAMRoleReasonPodIdentity,
-			}
-
 			pods, ok := m.PodsByNamespace[podAssociationNamespace]
 			if !ok {
 				// no pods in podAssociationNamespace, go to the next one
 				continue
 			}
+
+			// cache to avoid counting multiple IAM roles for a given SA
+			serviceAccountsHandledForPodAssociation := map[string]bool{}
+
 			// All pods in this podAssociationNamespace with this service account can assume the role
-			for i, _ := range pods {
-				if pods[i].ServiceAccount.Name == podAssociation.ServiceAccountName {
-					pods[i].ServiceAccount.AssumableRoles = append(pods[i].ServiceAccount.AssumableRoles, &assumableIamRole)
+			for _, pod := range pods {
+				if pod.ServiceAccount.Name == podAssociation.ServiceAccountName {
+					assumableIamRole := AssumableIAMRole{
+						IAMRole: &IAMRole{Arn: *podAssociationDetails.Association.RoleArn},
+						Reason:  AssumeIAMRoleReasonPodIdentity,
+					}
+
+					// Did we already find this role for this SA? (case where multiple pods have the same SA)
+					if _, ok := serviceAccountsHandledForPodAssociation[pod.ServiceAccount.Name]; !ok {
+						log.Println("Adding assumable role " + assumableIamRole.IAMRole.Arn + " to pod " + pod.Name + " in namespace " + pod.Namespace)
+						pod.ServiceAccount.AssumableRoles = append(pod.ServiceAccount.AssumableRoles, &assumableIamRole)
+						serviceAccountsHandledForPodAssociation[pod.ServiceAccount.Name] = true
+					}
 				}
 			}
 		}
