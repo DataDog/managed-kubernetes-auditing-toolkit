@@ -7,9 +7,9 @@ analysis](https://github.com/DataDog/managed-kubernetes-auditing-toolkit/actions
 MKAT is an all-in-one auditing toolkit for identifying common security issues within managed Kubernetes environments. It is focused on Amazon EKS at the moment, and will be extended to other managed Kubernetes environments in the future.
 
 Features:
-- 🔎 [Identify trust relationships between K8s service accounts and AWS IAM roles](#identify-trust-relationships-between-k8s-service-accounts-and-aws-iam-roles) - supports both IAM Roles for Service Accounts (IRSA), and [Pod Identity]((https://aws.amazon.com/blogs/aws/amazon-eks-pod-identity-simplifies-iam-permissions-for-applications-on-amazon-eks-clusters/) ([released] on November 26th 2023)
-- 🔑 [Find hardcoded AWS credentials in K8s resources](#find-hardcoded-aws-credentials-in-k8s-resources)
-- 💀 [Test if pods can access the AWS Instance Metadata Service (IMDS)](#test-if-pods-can-access-the-aws-instance-metadata-service-imds)
+- 🔎 [Identify trust relationships between K8s service accounts and AWS IAM roles](#identify-trust-relationships-between-k8s-service-accounts-and-aws-iam-roles) - supports both IAM Roles for Service Accounts (IRSA), and [Pod Identity](https://aws.amazon.com/blogs/aws/amazon-eks-pod-identity-simplifies-iam-permissions-for-applications-on-amazon-eks-clusters/), [released] on November 26th 2023.
+- 🔑 [Find hardcoded AWS credentials in K8s resources](#find-hardcoded-aws-credentials-in-k8s-resources).
+- 💀 [Test if pods can access the AWS Instance Metadata Service (IMDS)](#test-if-pods-can-access-the-aws-instance-metadata-service-imds).
 
 ## Installation
 
@@ -33,8 +33,8 @@ aws eks update-kubeconfig --name <cluster-name>
 
 MKAT can identify the trust relationships between K8s service accounts and AWS IAM roles, and display them in a table or as a graph. It currently supports:
 
-- **[IAM Roles for Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)**,  
-a popular mechanism to allow pods to assume AWS IAM roles by exchanging a Kubernetes service account token for AWS credentials through the AWS STS API (`AssumeRoleWithWebIdentity`).
+- **[IAM Roles for Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)**, a popular mechanism to allow pods to assume AWS IAM roles by exchanging a Kubernetes service account token for AWS credentials through the AWS STS API (`AssumeRoleWithWebIdentity`).
+
 - **[EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)**, another newer mechanism that works in a similar way, but is easier to set up.
 
 MKAT works by analyzing both the IAM roles in the AWS account, and the K8s service accounts in the cluster, and then matching them together based on these two mechanisms.

@@ -183,7 +183,6 @@ func (m *EKSCluster) AnalyzeRoleRelationshipsForPodIdentity() error {
 
 					// Did we already find this role for this SA? (case where multiple pods have the same SA)
 					if _, ok := serviceAccountsHandledForPodAssociation[pod.ServiceAccount.Name]; !ok {
-						log.Println("Adding assumable role " + assumableIamRole.IAMRole.Arn + " to pod " + pod.Name + " in namespace " + pod.Namespace)
 						pod.ServiceAccount.AssumableRoles = append(pod.ServiceAccount.AssumableRoles, &assumableIamRole)
 						serviceAccountsHandledForPodAssociation[pod.ServiceAccount.Name] = true
 					}
