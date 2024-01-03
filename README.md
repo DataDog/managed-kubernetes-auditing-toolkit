@@ -27,6 +27,8 @@ Then, make sure you are authenticated against your cluster, and to AWS. MKAT use
 aws eks update-kubeconfig --name <cluster-name>
 ```
 
+In particular, you might need to set your `AWS_REGION` and `AWS_PROFILE` environment variables, if using profiles.
+
 ## Features
 
 ### Identify trust relationships between K8s service accounts and AWS IAM roles
