@@ -237,5 +237,5 @@ func getRoleDisplayName(role *role_relationships.IAMRole) string {
 
 func getRoleName(role *role_relationships.IAMRole) string {
 	parsedArn, _ := arn.Parse(role.Arn)
-	return strings.Split(parsedArn.Resource, "/")[1]
+	return strings.TrimPrefix(parsedArn.Resource, "role/")
 }
