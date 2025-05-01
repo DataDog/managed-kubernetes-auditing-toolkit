@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -102,6 +103,16 @@ func (m *ImdsTester) runCommandInPodAndGetLogs(podName string, command []string)
 				Name:    podName,
 				Image:   "curlimages/curl:8.00.1",
 				Command: command,
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("500m"),
+						v1.ResourceMemory: resource.MustParse("128Mi"),
+					},
+					Limits: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("500m"),
+						v1.ResourceMemory: resource.MustParse("256Mi"),
+					},
+				},
 			}},
 			RestartPolicy: v1.RestartPolicyNever, // don't restart the pod once the command has been executed
 		},
