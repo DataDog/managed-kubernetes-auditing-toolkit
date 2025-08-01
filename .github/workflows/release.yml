@@ -5,13 +5,11 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-  pull-requests: write
-  
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Needed to federate tokens for dd-octo-sts
     steps:
       - name: Checkout
         uses: actions/checkout@v2.5.0
@@ -21,6 +19,11 @@ jobs:
         uses: actions/setup-go@v3.3.1
         with:
           go-version: 1.19
+      - uses: DataDog/dd-octo-sts-action@acaa02eee7e3bb0839e4272dacb37b8f3b58ba80 # v1.0.3
+        id: octo-sts
+        with:
+          scope: DataDog/managed-kubernetes-auditing-toolkit
+          policy: self.release.create-pr
       - name: Run GoReleaser
         timeout-minutes: 60
         uses: goreleaser/goreleaser-action@v6.1.0
@@ -29,4 +32,4 @@ jobs:
           version: latest
           args: release --clean --config .goreleaser.yaml
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.octo-sts.outputs.token }}

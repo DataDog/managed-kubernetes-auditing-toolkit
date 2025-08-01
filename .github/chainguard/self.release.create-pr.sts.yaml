@@ -1,0 +1,13 @@
+issuer: https://token.actions.githubusercontent.com
+
+subject_pattern: repo:DataDog/managed-kubernetes-auditing-toolkit:ref:refs/tags/v.*
+
+claim_pattern:
+  event_name: push
+  ref: refs/tags/v.*
+  job_workflow_ref: DataDog/managed-kubernetes-auditing-toolkit/\.github/workflows/release\.yml@refs/tags/v.*
+
+permissions:
+  contents: write
+  pull_requests: write
+
