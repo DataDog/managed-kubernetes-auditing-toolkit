@@ -18,7 +18,7 @@ require (
 	golang.org/x/term v0.5.0
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
-	k8s.io/client-go v0.26.2
+	k8s.io/client-go v1.5.2
 )
 
 require (
