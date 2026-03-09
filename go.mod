@@ -2,6 +2,8 @@ module github.com/datadog/managed-kubernetes-auditing-toolkit
 
 go 1.19
 
+toolchain go1.26.1
+
 require (
 	github.com/awalterschulze/gographviz v2.0.3+incompatible
 	github.com/aws/aws-sdk-go-v2 v1.23.1
