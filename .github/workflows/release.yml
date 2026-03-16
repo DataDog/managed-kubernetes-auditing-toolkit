@@ -12,11 +12,11 @@ jobs:
       id-token: write # Needed to federate tokens for dd-octo-sts
     steps:
       - name: Checkout
-        uses: actions/checkout@v2.5.0
+        uses: actions/checkout@e2f20e631ae6d7dd3b768f56a5d2af784dd54791 # v2.5.0
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v3.3.1
+        uses: actions/setup-go@c4a742cab115ed795e34d4513e2cf7d472deb55f # v3.3.1
         with:
           go-version: 1.19
       - uses: DataDog/dd-octo-sts-action@acaa02eee7e3bb0839e4272dacb37b8f3b58ba80 # v1.0.3
@@ -26,7 +26,7 @@ jobs:
           policy: self.release.create-pr
       - name: Run GoReleaser
         timeout-minutes: 60
-        uses: goreleaser/goreleaser-action@v6.1.0
+        uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf # v6.1.0
         with:
           distribution: goreleaser
           version: latest
