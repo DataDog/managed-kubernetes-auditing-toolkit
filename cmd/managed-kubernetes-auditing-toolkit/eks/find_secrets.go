@@ -41,7 +41,7 @@ func doFindSecretsCommand() error {
 	t.AppendHeader(table.Row{"Namespace", "Type", "Name", "Value"})
 	secretColor := color.New(color.BgRed, color.FgWhite, color.Bold)
 	for _, secret := range secrets {
-		t.AppendRow(table.Row{secret.Namespace, secret.Type, secret.Name, secretColor.Sprintf(secret.Value)})
+		t.AppendRow(table.Row{secret.Namespace, secret.Type, secret.Name, secretColor.Sprintf("%s", secret.Value)})
 	}
 
 	println(t.Render())
