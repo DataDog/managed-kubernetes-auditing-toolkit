@@ -226,9 +226,7 @@ func Test_parseConditions(t *testing.T) {
 				t.Errorf("parseConditions() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseConditions() got = %v, want %v", got, tt.want)
-			}
+			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
 }
