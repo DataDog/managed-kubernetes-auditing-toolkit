@@ -147,6 +147,7 @@ $ mkat eks test-imds-access
 | [kdigger](https://github.com/quarkslab/kdigger) | kdigger is a general-purpose context discovery tool for Kubernetes penetration testing. It does not attempt to be specific to managed K8s environments. |
 | [kubeletmein](https://github.com/4ARMED/kubeletmein) | kubeletmein _is_ specific to managed K8s environments. It's an utility to generate a kubeconfig file using the node's IAM credentials, to then use it in a compromised pod. |
 | [hardeneks](https://github.com/aws-samples/hardeneks) | hardeneks _is_ specific to managed K8s environments, but only for EKS. It identifies issues and lack of best practices inside of the cluster, and does not focus on cluster to cloud pivots. |
+| [CDK](https://github.com/cdk-team/CDK) | CDK _is_ a container which contains penetration toolkit. It contains net-tools and many proof of concepts and exploits, to help you escape the container and take over K8s cluster. You need to install CDK into the target container to perform the security testing. In the real-world penetration testing scenario, we can use RCE (Remote Code Execution) exploit to install CDK into the container.|
 
 ### What permissions does MKAT need to run?
 
